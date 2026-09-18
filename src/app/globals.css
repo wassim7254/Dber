@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #f7f6f1;
+  --color-surface: #ffffff;
+  --color-ink: #171815;
+  --color-muted: #6e7168;
+  --color-line: #e4e5df;
+  --color-green: #61775a;
+  --color-green-dark: #304536;
+  --color-green-soft: #e6ede2;
+  --color-sand: #b99b62;
+  --color-sand-soft: #f4ecdd;
+  --color-warn: #c38b3b;
+  --color-danger: #b85c52;
+  --color-danger-soft: #f7e8e6;
+  --color-success: #5c8062;
+  --color-success-soft: #e7efe8;
+  --color-khidma: #54617a;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --radius-card: 14px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-green-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editorial product/asset media — deterministic CSS art, no external assets. */
+.dber-media {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.dber-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 85% 8%, rgb(255 255 255 / 0.28), transparent 55%),
+    radial-gradient(90% 70% at 12% 90%, rgb(0 0 0 / 0.10), transparent 60%);
+}
+.dber-media.olive { background: linear-gradient(135deg, #5c6b4f, #8a9a75 55%, #c9cfb4); }
+.dber-media.audio { background: linear-gradient(135deg, #2e3230, #55605a 60%, #93a094); }
+.dber-media.argan { background: linear-gradient(135deg, #b98f4e, #d9bd8a 60%, #f0e4c8); }
+.dber-media.kitchen { background: linear-gradient(135deg, #59616b, #9aa4ad 60%, #d5dadd); }
+.dber-media.coffee { background: linear-gradient(135deg, #43302a, #7d5c48 60%, #c2a189); }
+.dber-media.rug { background: linear-gradient(135deg, #8c4f3f, #c08a6d 55%, #e6cdb4); }
+.dber-media.villa { background: linear-gradient(135deg, #4f7382, #86aab2 60%, #d3e3e4); }
+.dber-media.camera { background: linear-gradient(135deg, #23272b, #4c545b 60%, #9aa3aa); }
+.dber-media.van { background: linear-gradient(135deg, #72604a, #a89372 60%, #ddd0b4); }
+.dber-media.souq { background: linear-gradient(135deg, #61775a, #8fa383 60%, #d8e2cf); }
+.dber-media.khidma { background: linear-gradient(135deg, #54617a, #8494ab 60%, #ccd5e2); }
+.dber-media.kraya { background: linear-gradient(135deg, #8a6f46, #b99b62 60%, #e7d9bb); }
+.dber-media.default { background: linear-gradient(135deg, #61775a, #93a78b 60%, #d8e2cf); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
