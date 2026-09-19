@@ -1,6 +1,6 @@
 import type { Currency } from "@/lib/money";
 
-export type GatewayOutcome = "succeeded" | "failed";
+export type GatewayOutcome = "succeeded" | "pending" | "failed";
 
 export interface GatewayResult {
   outcome: GatewayOutcome;
@@ -47,9 +47,18 @@ export type GatewayPaymentState = "pending" | "authorized" | "captured" | "voide
  * provider adapters translate external states into DBER canonical states via
  * the event ingestion pipeline. All adapter operations MUST be retry-safe:
  * the same idempotency key never produces a duplicate financial effect.
+ *
+ * Outcome semantics:
+ *  - "succeeded": the provider confirmed the financial effect — safe to ingest
+ *    the corresponding canonical event immediately.
+ *  - "pending": the provider accepted the request but the effect awaits
+ *    customer confirmation or a provider event. The canonical state must NOT
+ *    advance until a verified provider event arrives (§19: the verified
+ *    provider result is authoritative, never the browser redirect).
+ *  - "failed": the provider rejected the operation.
  */
 export interface PaymentGateway {
-  readonly provider: "mock";
+  readonly provider: "mock" | "stripe";
   authorize(input: AuthorizeInput): Promise<GatewayResult>;
   capture(input: CaptureInput): Promise<GatewayResult>;
   voidPayment(input: VoidInput): Promise<GatewayResult>;

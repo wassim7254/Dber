@@ -53,6 +53,7 @@ export interface CircleDetailDto extends CircleCardDto {
   description: string;
   state: string;
   sellerId: string;
+  productId: string;
   minimumParticipants: number;
   participants: { id: string; displayName: string; quantity: number; joinedAt: string }[];
   viewerParticipation: { quantity: number; paymentStatus: string } | null;
@@ -72,6 +73,7 @@ export async function getCircleDetailView(
     title: circle.productTitle,
     description: circle.productDescription,
     category: circle.productCategory,
+    productId: circle.productId,
     images: circle.productImages,
     groupPriceMinor: circle.groupPriceMinor,
     listPriceMinor: circle.listPriceMinor,

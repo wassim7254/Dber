@@ -5,7 +5,7 @@ import { addBlockedWindow } from "@/domains/kraya/application/kraya-service";
 /** Owner blocks a window (maintenance / personal use). New bookings in the window are rejected. */
 export const POST = mutationRoute({
   scope: "kraya.availability.block",
-  auth: ["seller", "professional", "admin"],
+  auth: ["seller", "rental_owner", "admin"],
   body: blockedWindowSchema,
   handler: ({ tx, identity, body, params }) =>
     addBlockedWindow(tx, identity, {

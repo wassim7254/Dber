@@ -1,6 +1,6 @@
 import { and, eq, gt, lt } from "drizzle-orm";
 
-import { krayaAssets, krayaAvailability, payouts, rentalBookings, rentalContracts } from "@/db/schema";
+import { krayaAssets, krayaAvailability, rentalBookings, rentalContracts } from "@/db/schema";
 import type { DbExecutor, Tx } from "@/db/tx";
 import { recordAudit, recordProviderAction } from "@/infrastructure/audit/writer";
 import { enqueueOutboxEvents } from "@/infrastructure/outbox/writer";
@@ -11,15 +11,15 @@ import {
   findPaymentByTarget,
   refundFullHeadroom,
 } from "@/domains/payments/infrastructure/payment-repository";
+import { createPayout } from "@/domains/payments/application/payout-lifecycle";
 import type { Identity } from "@/lib/auth/types";
 import { requireSelf } from "@/lib/auth/rbac";
 import { BookingOverlapError, ConflictError, ResourceNotFoundError, ValidationError } from "@/lib/errors";
 import { DomainEvent, DomainEvents } from "@/lib/events";
-import { asCurrency, computeMarketplaceFee, computeRentalQuote } from "@/lib/money";
+import { asCurrency, computeRentalQuote } from "@/lib/money";
 import {
   assertKrayaBookingActionPermission,
   krayaBookingMachine,
-  type KrayaBookingState,
   type KrayaBookingUserAction,
 } from "@/domains/kraya/domain/machine";
 import { krayaCancellationPolicy } from "@/domains/kraya/domain/policy";
@@ -117,7 +117,47 @@ export async function createAsset(
   return { assetId: asset.id };
 }
 
-export type AssetTransitionAction = "publish" | "pause" | "archive";
+export type AssetUpdateInput = Partial<CreateAssetInput>;
+
+export async function updateAsset(
+  tx: Tx,
+  identity: Identity,
+  assetId: string,
+  input: AssetUpdateInput,
+): Promise<{ assetId: string }> {
+  const [asset] = await tx.select().from(krayaAssets).where(eq(krayaAssets.id, assetId)).limit(1);
+  if (!asset) throw new ResourceNotFoundError("Asset", assetId);
+  requireSelf(identity, asset.ownerId, "asset");
+  const [updated] = await tx
+    .update(krayaAssets)
+    .set({
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.category !== undefined ? { category: input.category } : {}),
+      ...(input.dailyRateMinor !== undefined ? { dailyRateMinor: input.dailyRateMinor } : {}),
+      ...(input.depositMinor !== undefined ? { depositMinor: input.depositMinor } : {}),
+      ...(input.location !== undefined ? { location: input.location } : {}),
+      ...(input.capacity !== undefined ? { capacity: input.capacity } : {}),
+      ...(input.rules !== undefined ? { rules: input.rules } : {}),
+      ...(input.minDurationHours !== undefined ? { minDurationHours: input.minDurationHours } : {}),
+      ...(input.images !== undefined ? { images: input.images } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(krayaAssets.id, assetId))
+    .returning({ id: krayaAssets.id });
+  await recordAudit(tx, {
+    actorId: identity.userId,
+    actorRole: identity.role,
+    action: "kraya.asset.updated",
+    entityType: "kraya_asset",
+    entityId: assetId,
+    before: { title: asset.title, dailyRateMinor: asset.dailyRateMinor, depositMinor: asset.depositMinor },
+    after: input as JsonObject,
+  });
+  return { assetId: updated.id };
+}
+
+export type AssetTransitionAction = "publish" | "pause" | "archive" | "restore";
 
 const ASSET_TRANSITIONS: Record<
   AssetTransitionAction,
@@ -126,6 +166,7 @@ const ASSET_TRANSITIONS: Record<
   publish: { from: ["draft", "paused"], to: "active" },
   pause: { from: ["active"], to: "paused" },
   archive: { from: ["draft", "active", "paused"], to: "archived" },
+  restore: { from: ["archived"], to: "draft" },
 };
 
 /**
@@ -782,22 +823,11 @@ export async function createPayoutForBooking(
   grossMinor: number,
   currency: ReturnType<typeof asCurrency>,
 ): Promise<{ payoutId: string } | null> {
-  const existing = await tx.select({ id: payouts.id }).from(payouts).where(eq(payouts.bookingId, bookingId)).limit(1);
-  if (existing.length > 0) return null; // idempotent
-  const feeMinor = computeMarketplaceFee(grossMinor);
-  const amountMinor = grossMinor - feeMinor;
-  if (amountMinor <= 0) return null;
-  const [payout] = await tx
-    .insert(payouts)
-    .values({ ownerId, bookingId, grossMinor, feeMinor, amountMinor, currency, state: "pending" })
-    .returning({ id: payouts.id });
-  await enqueueOutboxEvents(tx, [
-    {
-      eventType: DomainEvents.payoutRequested,
-      aggregateType: "kraya_booking",
-      aggregateId: bookingId,
-      payload: { payoutId: payout.id },
-    },
-  ]);
-  return { payoutId: payout.id };
+  return createPayout(tx, {
+    entityType: "kraya_booking",
+    entityId: bookingId,
+    ownerId,
+    grossMinor,
+    currency,
+  });
 }

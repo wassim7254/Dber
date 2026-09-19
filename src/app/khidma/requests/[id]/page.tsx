@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { db } from "@/db/client";
 import { getRequestQuotes, getRequestView } from "@/domains/khidma/application/khidma-read";
 import { Card, StatusBadge } from "@/components/dber/ui";
@@ -9,7 +9,7 @@ import { formatDate, formatTimestamp } from "@/components/dber/ui";
 
 export default async function KhidmaRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
 
   const request = await getRequestView(db, id).catch(() => null);

@@ -4,7 +4,7 @@ import { transitionRentalBooking } from "@/domains/kraya/application/kraya-servi
 
 export const POST = mutationRoute({
   scope: "kraya.booking.transition",
-  auth: ["buyer", "seller", "professional", "admin"],
+  auth: ["buyer", "seller", "professional", "rental_owner", "admin"],
   body: krayaTransitionSchema,
   handler: ({ tx, identity, body, params }) =>
     transitionRentalBooking(tx, { identity, bookingId: params.id, action: body.action, reason: body.reason }),

@@ -26,6 +26,8 @@ async function createOpenCircle(targetQuantity: number): Promise<string> {
       description: "A product created for testing purposes.",
       category: "test",
       basePriceMinor: 50000,
+      maxAvailableQuantity: targetQuantity,
+      deliveryMethod: "delivery",
       images: [],
     });
     const { circleId } = await createCircle(tx, seller, {
@@ -156,6 +158,8 @@ describe("souq payment lifecycle", () => {
         description: "Created for the expiration test case.",
         category: "test",
         basePriceMinor: 10000,
+        maxAvailableQuantity: 50,
+        deliveryMethod: "delivery",
         images: [],
       });
       const { circleId: created } = await createCircle(tx, seller, {

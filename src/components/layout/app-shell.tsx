@@ -1,7 +1,11 @@
 import Link from "next/link";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { getCurrentUser } from "@/lib/auth/identity";
+import { isPrivileged } from "@/lib/auth/rbac";
+import { isDevelopment } from "@/lib/config/env";
 import { Icon, type IconName } from "@/components/dber/icon";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { BottomNav } from "@/components/layout/bottom-nav";
 import { UserSwitcher } from "@/components/layout/user-switcher";
 
 const VERTICALS: { href: string; label: string; icon: IconName; blurb: string }[] = [
@@ -18,11 +22,13 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
 ];
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await getCurrentUser();
+  const isProvider = identity ? ["seller", "professional", "admin"].includes(identity.role) : false;
+  const showDevSwitcher = isDevelopment && identity !== null;
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[1440px]">
       {/* Desktop navigation rail */}
-      <aside className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-line bg-surface px-5 py-6 md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-line/70 bg-surface/70 px-5 py-6 md:flex">
         <Link href="/" className="flex items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-lg bg-green-dark font-mono text-[13px] font-semibold text-bg">
             D
@@ -71,19 +77,62 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <Icon name="bell" size={17} className="text-muted" />
             Notifications
           </Link>
+          {isProvider ? (
+            <Link
+              href="/pro"
+              className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="spark" size={17} className="text-muted" />
+              Workspace
+            </Link>
+          ) : null}
+          {identity && isPrivileged(identity.role) ? (
+            <Link
+              href="/admin"
+              className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-bg"
+            >
+              <Icon name="shield" size={17} className="text-muted" />
+              Operations
+            </Link>
+          ) : null}
         </nav>
 
         <div className="mt-auto">
           {identity ? (
-            <UserSwitcher currentUserId={identity.userId} currentRole={identity.role} compact />
+            <div className="flex items-center gap-2">
+              <AccountMenu
+                displayName={identity.displayName}
+                role={identity.role}
+                isPrivileged={isPrivileged(identity.role)}
+                isProvider={isProvider}
+              >
+                {showDevSwitcher ? (
+                  <div className="border-t border-line pt-1">
+                    <UserSwitcher currentUserId={identity.userId} currentRole={identity.role} compact />
+                  </div>
+                ) : null}
+              </AccountMenu>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold leading-tight">{identity.displayName}</p>
+                <p className="text-[11px] capitalize leading-tight text-muted">{identity.role.replace(/_/g, " ")}</p>
+              </div>
+            </div>
           ) : (
-            <Link
-              href="/welcome"
-              className="flex items-center justify-center gap-2 rounded-lg bg-green px-4 py-2.5 text-[13px] font-semibold text-bg transition-colors hover:bg-green-dark"
-            >
-              Sign in
-              <Icon name="arrow" size={15} />
-            </Link>
+            <div className="space-y-2">
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-2 rounded-lg bg-green px-4 py-2.5 text-[13px] font-semibold text-bg transition-colors hover:bg-green-dark"
+              >
+                Sign in
+                <Icon name="arrow" size={15} />
+              </Link>
+              <Link
+                href="/register"
+                className="flex items-center justify-center rounded-lg border border-line px-4 py-2.5 text-[13px] font-semibold transition-colors hover:border-green"
+              >
+                Create account
+              </Link>
+            </div>
           )}
         </div>
       </aside>
@@ -91,7 +140,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-surface/95 px-4 py-3 backdrop-blur md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line/60 bg-bg/85 px-4 py-3 backdrop-blur-md md:hidden">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex size-7 items-center justify-center rounded-md bg-green-dark font-mono text-[12px] font-semibold text-bg">
               D
@@ -107,12 +156,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               <Icon name="bell" size={19} />
             </Link>
             {identity ? (
-              <UserSwitcher currentUserId={identity.userId} currentRole={identity.role} />
-            ) : (
-              <Link
-                href="/welcome"
-                className="rounded-full bg-green px-4 py-2 text-[12px] font-semibold text-bg"
+              <AccountMenu
+                displayName={identity.displayName}
+                role={identity.role}
+                isPrivileged={isPrivileged(identity.role)}
+                isProvider={isProvider}
               >
+                {showDevSwitcher ? (
+                  <div className="border-t border-line pt-1">
+                    <UserSwitcher currentUserId={identity.userId} currentRole={identity.role} compact />
+                  </div>
+                ) : null}
+              </AccountMenu>
+            ) : (
+              <Link href="/login" className="rounded-full bg-green px-4 py-2 text-[12px] font-semibold text-bg">
                 Sign in
               </Link>
             )}
@@ -121,22 +178,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="min-w-0 flex-1 pb-24 md:pb-10">{children}</main>
 
-        {/* Mobile bottom navigation */}
-        <nav
-          aria-label="Bottom navigation"
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-        >
-          {[...NAV].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[10px] font-medium text-muted transition-colors hover:text-ink"
-            >
-              <Icon name={item.icon} size={20} />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Mobile bottom navigation — floating pill */}
+        <BottomNav />
       </div>
     </div>
   );

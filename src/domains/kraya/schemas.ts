@@ -37,8 +37,19 @@ export const krayaTransitionSchema = z.object({
   reason: z.string().min(3).max(500).optional(),
 });
 
+export const updateAssetSchema = createAssetSchema.omit({ blockedWindows: true }).partial();
+
 export const assetTransitionSchema = z.object({
-  action: z.enum(["publish", "pause", "archive"]),
+  action: z.enum(["publish", "pause", "archive", "restore"]),
+});
+
+export const rentalProviderProfileSchema = z.object({
+  businessName: z.string().min(2).max(120).optional(),
+  description: z.string().max(5000).default(""),
+  city: z.string().max(120).default(""),
+  country: z.string().max(60).default("MA"),
+  rentalPolicies: z.string().max(4000).default(""),
+  payoutHandle: z.string().max(120).default(""),
 });
 
 export const blockedWindowSchema = z

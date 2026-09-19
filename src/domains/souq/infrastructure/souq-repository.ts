@@ -200,6 +200,7 @@ export async function getCircleDetail(executor: DbExecutor, circleId: string): P
       productDescription: string;
       productCategory: string;
       productImages: string[];
+      productId: string;
       sellerName: string;
     })
   | null
@@ -211,6 +212,7 @@ export async function getCircleDetail(executor: DbExecutor, circleId: string): P
       productDescription: souqProducts.description,
       productCategory: souqProducts.category,
       productImages: souqProducts.images,
+      productId: souqProducts.id,
       sellerName: users.displayName,
     })
     .from(groupBuyCircles)

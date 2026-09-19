@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { db } from "@/db/client";
 import { getCheckoutView } from "@/domains/payments/application/payments-read";
 import { Card, PriceBreakdown, StatusBadge, Timeline, formatTimestamp } from "@/components/dber/ui";
@@ -12,7 +12,7 @@ export const metadata = { title: "Checkout" };
 
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
 
   const view = await getCheckoutView(db, id).catch(() => null);

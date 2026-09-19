@@ -2,7 +2,7 @@ import { desc, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { disputeEvidence, disputes, users } from "@/db/schema";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { redirect } from "next/navigation";
 import { Card, StatusBadge, formatTimestamp } from "@/components/dber/ui";
 import { ResolveDispute } from "@/components/actions/governance-actions";
@@ -10,7 +10,7 @@ import { ResolveDispute } from "@/components/actions/governance-actions";
 export const metadata = { title: "Disputes — Admin" };
 
 export default async function AdminDisputesPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   if (identity.role !== "admin") redirect("/admin");
 

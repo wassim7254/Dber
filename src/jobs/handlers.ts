@@ -11,7 +11,7 @@ import {
   handleRefundRequested,
   handleVoidRequested,
 } from "@/domains/payments/application/payment-lifecycle";
-import { handlePayoutRequested } from "@/domains/kraya/application/payout-lifecycle";
+import { handlePayoutRequested } from "@/domains/payments/application/payout-lifecycle";
 
 const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   "group_progress",

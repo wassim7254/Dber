@@ -671,3 +671,65 @@ Aligned with directive §77; each phase ends with its verification gate:
 | side-effect-producing changes emit outbox | services construct via `withTransactionEffects` helper |
 | same key + same payload = same result | §7 transactional reservation |
 | contract/quote snapshots immutable | no update paths; append-only versions |
+
+---
+
+## 20. V1 production-completeness additions (2026-09-19)
+
+The following closes the remaining V1 directive gaps; all layers are connected (DB → domain → API → UI → flow).
+
+**Authentication (§3/§4).** Real credential auth replaces dev-only identity in all environments:
+scrypt password hashing (`lib/auth/password.ts`), server-side sessions with SHA-256-hashed opaque
+tokens (`lib/auth/session.ts`), single-use email-verification / password-reset tokens
+(`auth_tokens`), and the `authenticate()` / `requireAuth()` / `getCurrentUser()` boundary in
+`lib/auth/identity.ts`. Dev headers/cookies remain hard-gated to non-production. Routes:
+`/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`,
+`/account/security` (change password + session revocation). Auth emails use an `EmailSender`
+port: console delivery in dev, honest `delivered: false` in production until a provider is
+configured (§79).
+
+**Provider workspaces (§5/§6/§9/§15).** `/pro/seller/*` (products create→draft→publish gate,
+group-buy launch, inventory view, earnings, store settings), `/pro/professional/*` (rich
+profile — headline/bio/specialties/service area/languages, services with publish gate, weekly
+availability editor, request feed + quotes, bookings, earnings), `/pro/rental/*` (asset form
+with real photo upload, blocked-window calendar editor, bookings with return/completion,
+earnings). Products and services now start as `draft`; publishing is a server-validated
+transition (photo/price/inventory/location gates) with a `restore` path from archived.
+
+**Media (§47).** `StorageAdapter` port with a local-volume dev implementation
+(`.data/uploads`, gitignored) and upload registry table. `POST /api/v1/media` validates
+type/size (JPEG/PNG/WebP/AVIF ≤ 5 MB), stores alt text, and returns the serving URL used
+verbatim in listing image arrays; `GET /api/v1/media/[id]` serves with immutable caching.
+
+**Payouts (§22/§23).** The ledger is cross-vertical: `payouts(entity_type, entity_id)` rows are
+created inside the completion transaction for SOUQ circles (seller), KHIDMA bookings
+(professional), and KRAYA rentals (owner); settlement remains outbox-driven
+(pending → processing → paid/failed).
+
+**Engagement.** Reviews tied to completed transactions only (author = paying customer, subject
+= provider, one per transaction per author, unique-enforced); contextual per-transaction
+message threads (participants authorized by the owning domain service — no free chat);
+support tickets with an ops queue and audited state changes; save/favorite toggles persisted
+server-side across all verticals.
+
+**Payments (§19/§20).** `PaymentGateway` is selected from validated env
+(`DBER_PAYMENT_PROVIDER=mock|stripe`); a Stripe adapter (`stripe-gateway.ts`) implements the
+documented REST contract (manual-capture PaymentIntents, Refunds, Payouts) and the documented
+webhook signature scheme. New `pending` outcome semantics: the provider accepted but the
+canonical state advances ONLY from a verified provider event. Production env validation fails
+fast without real provider configuration; the mock adapter is refused in production.
+
+**Admin (§31/§32/§44).** Added `/admin/users` (search + activity counts), `/admin/listings`
+(cross-vertical moderation: approve/reject/disable/restore with mandatory reason, recorded in
+`listing_moderations` + `admin_actions` + audit), `/admin/support` (ticket queue),
+`/admin/jobs` (live job/system health: outbox backlog, dead-letters, stale TTLs, stuck
+payments, worker heartbeat, DB reachability).
+
+**UX.** `loading.tsx` skeletons on all primary routes, state-aware status map extended
+(payouts, support, listing, verification states), role-aware shell (Workspace / Operations
+entries, real sign-out), vertical identity tokens (KHIDMA clay, KRAYA azure) with corrected
+media gradients.
+
+**Tests.** 52 passing: original suites plus `tests/completeness.test.ts` (password hashing,
+Stripe webhook signature verification incl. tamper/staleness, publish gating, ownership,
+review lifecycle, cross-vertical payouts, support tickets, messaging authorization).

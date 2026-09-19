@@ -9,7 +9,7 @@ import {
   createRequest,
   submitQuote,
 } from "@/domains/khidma/application/khidma-service";
-import { createAsset, createRentalBooking, tryConfirmRentalBooking } from "@/domains/kraya/application/kraya-service";
+import { createAsset, createRentalBooking, transitionAsset, tryConfirmRentalBooking } from "@/domains/kraya/application/kraya-service";
 import { asPgError } from "@/lib/persistence/pg-errors";
 import { enqueuePaymentIntent, getPaymentById } from "@/domains/payments/infrastructure/payment-repository";
 import { ingestProviderEvent } from "@/domains/payments/application/ingest";
@@ -155,8 +155,8 @@ describe("payment/timeout race (§18)", () => {
 
 describe("kraya booking + confirmation", () => {
   it("server-side pricing; confirms only when rent captured AND deposit authorized", async () => {
-    const { assetId } = await tx((handle) =>
-      createAsset(handle, owner, {
+    const { assetId } = await tx(async (handle) => {
+      const created = await createAsset(handle, owner, {
         title: "Test camera kit",
         description: "Rental asset created for the confirmation test.",
         category: "equipment",
@@ -164,8 +164,10 @@ describe("kraya booking + confirmation", () => {
         depositMinor: 150000,
         location: "Test City",
         images: ["camera"],
-      }),
-    );
+      });
+      await transitionAsset(handle, owner, { assetId: created.assetId, action: "publish" });
+      return created;
+    });
     const { bookingId, rentalPaymentId, depositPaymentId } = await tx((handle) =>
       createRentalBooking(handle, buyer, {
         assetId,
@@ -216,17 +218,19 @@ describe("kraya booking + confirmation", () => {
   });
 
   it("overlap is impossible at the database (§32)", async () => {
-    const { assetId } = await tx((handle) =>
-      createAsset(handle, owner, {
+    const { assetId } = await tx(async (handle) => {
+      const created = await createAsset(handle, owner, {
         title: "Overlapped asset",
         description: "Asset used for the overlap verification test.",
         category: "tool",
         dailyRateMinor: 20000,
         depositMinor: 50000,
         location: "Test City",
-        images: [],
-      }),
-    );
+        images: ["toolkit"],
+      });
+      await transitionAsset(handle, owner, { assetId: created.assetId, action: "publish" });
+      return created;
+    });
     const slot = {
       startTime: new Date(Date.now() + 96 * 3_600_000),
       endTime: new Date(Date.now() + 120 * 3_600_000),

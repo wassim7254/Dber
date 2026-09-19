@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { isPrivileged } from "@/lib/auth/rbac";
 import { Card, Eyebrow } from "@/components/dber/ui";
 import { OutboxTableMini } from "@/components/dber/tables";
@@ -18,7 +18,7 @@ async function countOf(query: ReturnType<typeof sql>): Promise<number> {
 }
 
 export default async function AdminPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   if (!isPrivileged(identity.role)) redirect("/");
 
@@ -53,11 +53,15 @@ export default async function AdminPage() {
           </div>
           <nav className="flex flex-wrap gap-1.5 text-[12.5px] font-medium">
             {[
+              { href: "/admin/users", label: "Users" },
+              { href: "/admin/listings", label: "Listings" },
               { href: "/admin/payments", label: "Payments" },
               { href: "/admin/disputes", label: "Disputes" },
               { href: "/admin/cancellations", label: "Cancellations" },
+              { href: "/admin/support", label: "Support" },
               { href: "/admin/audit", label: "Audit" },
               { href: "/admin/outbox", label: "Outbox" },
+              { href: "/admin/jobs", label: "Jobs & health" },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="rounded-full border border-line px-3.5 py-1.5 transition-colors hover:border-green hover:text-green-dark">
                 {item.label}

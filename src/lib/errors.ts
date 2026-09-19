@@ -15,6 +15,8 @@ export type ErrorCode =
   | "CANCELLATION_STATE"
   | "DISPUTE_STATE"
   | "RATE_LIMITED"
+  | "PROVIDER_ERROR"
+  | "CONFIGURATION"
   | "INTERNAL";
 
 export interface ErrorDetails {
@@ -138,5 +140,19 @@ export class RateLimitedError extends DomainError {
 export class InternalError extends DomainError {
   constructor(message = "An unexpected error occurred") {
     super("INTERNAL", 500, message);
+  }
+}
+
+/** The payment provider rejected or could not be reached (§82). */
+export class PaymentProviderError extends DomainError {
+  constructor(message: string, details?: ErrorDetails) {
+    super("PROVIDER_ERROR", 502, message, details);
+  }
+}
+
+/** A required deployment configuration is missing or invalid (§72). */
+export class ConfigurationError extends DomainError {
+  constructor(message: string) {
+    super("CONFIGURATION", 503, message);
   }
 }

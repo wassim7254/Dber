@@ -4,6 +4,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "buyer",
   "seller",
   "professional",
+  "rental_owner",
   "ops_admin",
   "admin",
 ]);
@@ -97,7 +98,7 @@ export const paymentCategoryEnum = pgEnum("payment_category", [
   "kraya_deposit",
 ]);
 
-export const paymentProviderEnum = pgEnum("payment_provider", ["mock"]);
+export const paymentProviderEnum = pgEnum("payment_provider", ["mock", "stripe"]);
 
 export const refundStateEnum = pgEnum("refund_state", [
   "requested",
@@ -191,4 +192,48 @@ export const payoutStateEnum = pgEnum("payout_state", [
   "processing",
   "paid",
   "failed",
+]);
+
+export const payoutEntityEnum = pgEnum("payout_entity_type", [
+  "souq_circle",
+  "khidma_booking",
+  "kraya_booking",
+]);
+
+export const authTokenTypeEnum = pgEnum("auth_token_type", [
+  "email_verification",
+  "password_reset",
+]);
+
+export const verificationStatusEnum = pgEnum("verification_status", [
+  "unverified",
+  "pending_review",
+  "verified",
+]);
+
+export const supportStateEnum = pgEnum("support_state", [
+  "open",
+  "in_progress",
+  "resolved",
+  "closed",
+]);
+
+export const messageTargetEnum = pgEnum("message_target_type", [
+  "souq_circle",
+  "khidma_booking",
+  "kraya_booking",
+]);
+
+export const reviewEntityEnum = pgEnum("review_entity_type", [
+  "souq_circle",
+  "khidma_booking",
+  "kraya_booking",
+]);
+
+export const deliveryMethodEnum = pgEnum("delivery_method", ["delivery", "pickup", "both"]);
+
+export const moderationEntityEnum = pgEnum("moderation_entity_type", [
+  "souq_product",
+  "khidma_service",
+  "kraya_asset",
 ]);

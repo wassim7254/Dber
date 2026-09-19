@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { notifications } from "@/db/schema";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { Card, EmptyState, formatTimestamp } from "@/components/dber/ui";
 import { Icon } from "@/components/dber/icon";
 import { MarkRead } from "@/components/actions/mark-read";
@@ -12,7 +12,7 @@ export const metadata = { title: "Notifications" };
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
 
   const rows = await db

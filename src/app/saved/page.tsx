@@ -4,13 +4,13 @@ import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { krayaAssets, khidmaServices, savedItems, souqProducts, users } from "@/db/schema";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { Card, DberMoney, EmptyState } from "@/components/dber/ui";
 
 export const metadata = { title: "Saved" };
 
 export default async function SavedPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
 
   const rows = await db

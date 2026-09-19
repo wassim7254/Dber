@@ -1,19 +1,26 @@
 import { notFound } from "next/navigation";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { getRentalDetail } from "@/domains/kraya/application/kraya-read";
+import { authenticate } from "@/lib/auth/identity";
+import { SaveButton } from "@/components/engagement/save-button";
+import { savedItems } from "@/db/schema";
+import { getSubjectRating, listReviewsForSubject } from "@/domains/engagement/reviews-service";
+import { RatingStars, ReviewList } from "@/components/engagement/rating-stars";
 import { Card, DberMoney, Eyebrow, Media } from "@/components/dber/ui";
 import { ReservePanel } from "@/components/actions/reserve-panel";
 
 export default async function KrayaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const identity = await authenticate();
   const rental = await getRentalDetail(db, id).catch(() => null);
   if (!rental) notFound();
 
   return (
     <div className="px-4 py-6 md:px-10 md:py-10">
       <div className="mx-auto max-w-[980px] space-y-6">
-        <Media kind={rental.images[0] ?? rental.category} title={rental.title} className="h-56 rounded-[var(--radius-card)] md:h-80" />
+        <Media kind={rental.images[0] ?? rental.category} title={rental.title} className="h-64 w-full rounded-[24px] md:h-[380px]" />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
@@ -66,10 +73,31 @@ export default async function KrayaDetailPage({ params }: { params: Promise<{ id
                 It only ever becomes a charge through an explicit, audited dispute resolution.
               </p>
             </Card>
+            <Card className="p-5">
+              <OwnerReviews ownerId={rental.ownerId} />
+            </Card>
           </div>
 
           <div className="lg:sticky lg:top-8 lg:self-start">
             <Card className="p-5">
+              <div className="mb-3">
+                <SaveButton
+                  entityType="kraya_asset"
+                  entityId={rental.id}
+                  initiallySaved={
+                    identity
+                      ? (
+                          await db
+                            .select({ id: savedItems.id })
+                            .from(savedItems)
+                            .where(and(eq(savedItems.userId, identity.userId), eq(savedItems.entityType, "kraya_asset"), eq(savedItems.entityId, rental.id)))
+                            .limit(1)
+                        ).length > 0
+                      : false
+                  }
+                  signedIn={identity !== null}
+                />
+              </div>
               <div className="mb-4 flex items-baseline justify-between">
                 <div>
                   <p className="text-[12px] text-muted">Per day</p>
@@ -87,6 +115,26 @@ export default async function KrayaDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+async function OwnerReviews({ ownerId }: { ownerId: string }) {
+  const [rating, ownerReviews] = await Promise.all([
+    getSubjectRating(db, ownerId),
+    listReviewsForSubject(db, ownerId),
+  ]);
+  return (
+    <div>
+      <p className="text-[13px] font-semibold">Reviews of this owner</p>
+      <div className="mt-2">
+        <RatingStars average={rating.average} count={rating.count} />
+      </div>
+      {ownerReviews.length > 0 ? (
+        <div className="mt-4 space-y-3">
+          <ReviewList reviews={ownerReviews.slice(0, 3)} />
+        </div>
+      ) : null}
     </div>
   );
 }

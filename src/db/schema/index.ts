@@ -6,3 +6,4 @@ export * from "@/db/schema/kraya";
 export * from "@/db/schema/payments";
 export * from "@/db/schema/governance";
 export * from "@/db/schema/infra";
+export * from "@/db/schema/engagement";

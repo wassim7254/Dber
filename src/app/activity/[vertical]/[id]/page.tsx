@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { db } from "@/db/client";
 import { getBookingView, type KhidmaBookingDto } from "@/domains/khidma/application/khidma-read";
 import { getContractView, getRentalBookingView, type RentalBookingDto } from "@/domains/kraya/application/kraya-read";
@@ -13,6 +13,10 @@ import { TransitionActions } from "@/components/actions/transition-actions";
 import { OpenDisputeButton, RequestCancellationButton } from "@/components/actions/governance-actions";
 import { khidmaCancellationPolicy } from "@/domains/khidma/domain/policy";
 import { krayaCancellationPolicy } from "@/domains/kraya/domain/policy";
+import { ReviewForm } from "@/components/engagement/review-form";
+import { MessageThread } from "@/components/engagement/message-thread";
+import { reviews } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export const metadata = { title: "Transaction" };
 
@@ -22,7 +26,7 @@ export default async function TransactionDetailPage({
   params: Promise<{ vertical: string; id: string }>;
 }) {
   const { vertical, id } = await params;
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
 
   if (vertical === "khidma") {
@@ -98,6 +102,19 @@ export default async function TransactionDetailPage({
               </dl>
             </Card>
           </div>
+
+          <Card className="p-5">
+            <p className="mb-3 text-[13px] font-semibold">Messages</p>
+            <MessageThread entityType="khidma_booking" entityId={id} viewerId={identity.userId} />
+          </Card>
+
+          {booking.state === "completed" && identity.userId === booking.buyerId ? (
+            <ReviewSection
+              entityType="khidma_booking"
+              entityId={id}
+              authorId={identity.userId}
+            />
+          ) : null}
 
           <Card className="p-5">
             <p className="mb-4 text-[13px] font-semibold">Timeline</p>
@@ -193,6 +210,19 @@ export default async function TransactionDetailPage({
           </div>
 
           <Card className="p-5">
+            <p className="mb-3 text-[13px] font-semibold">Messages</p>
+            <MessageThread entityType="kraya_booking" entityId={id} viewerId={identity.userId} />
+          </Card>
+
+          {booking.state === "completed" && identity.userId === booking.renterId ? (
+            <ReviewSection
+              entityType="kraya_booking"
+              entityId={id}
+              authorId={identity.userId}
+            />
+          ) : null}
+
+          <Card className="p-5">
             <p className="mb-4 text-[13px] font-semibold">Timeline</p>
             <Timeline items={timeline} />
           </Card>
@@ -202,4 +232,26 @@ export default async function TransactionDetailPage({
   }
 
   notFound();
+}
+
+async function ReviewSection({
+  entityType,
+  entityId,
+  authorId,
+}: {
+  entityType: "khidma_booking" | "kraya_booking";
+  entityId: string;
+  authorId: string;
+}) {
+  const [existing] = await db
+    .select({ rating: reviews.rating, title: reviews.title, body: reviews.body })
+    .from(reviews)
+    .where(and(eq(reviews.entityType, entityType), eq(reviews.entityId, entityId), eq(reviews.authorId, authorId)))
+    .limit(1);
+  return (
+    <Card className="p-5">
+      <p className="mb-3 text-[13px] font-semibold">Your review</p>
+      <ReviewForm entityType={entityType} entityId={entityId} existing={existing ?? null} />
+    </Card>
+  );
 }

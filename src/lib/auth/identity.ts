@@ -1,10 +1,15 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
 
+import { db } from "@/db/client";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { isProduction } from "@/lib/config/env";
-import { InternalError } from "@/lib/errors";
-import type { Identity, Role } from "@/lib/auth/types";
+import { InternalError, UnauthorizedError } from "@/lib/errors";
+import type { Identity, ParticipantRole, Role } from "@/lib/auth/types";
 import { USER_ROLES } from "@/lib/auth/types";
+import { listUserRoles } from "@/domains/identity/application/role-service";
+import { resolveSessionIdentity, SESSION_COOKIE } from "@/lib/auth/session";
 
 const identitySchema = z.object({
   userId: z.uuid(),
@@ -27,10 +32,8 @@ function parseIdentity(raw: { userId: string | null; role: string | null }): Ide
 export const parseIdentityRaw = parseIdentity;
 
 /**
- * MVP development identity: plaintext headers. Hard-disabled outside
- * development/test so it can never authenticate production traffic.
- * The rest of the application depends only on Identity, never on these
- * headers, so a real identity provider replaces this function alone.
+ * Development header identity. Hard-disabled outside development/test so it
+ * can never authenticate production traffic (§50).
  */
 export function resolveIdentityFromHeaders(headers: Headers): Identity | null {
   if (isProduction) {
@@ -39,11 +42,74 @@ export function resolveIdentityFromHeaders(headers: Headers): Identity | null {
   return parseIdentity({ userId: headers.get(DEV_USER_ID_HEADER), role: headers.get(DEV_ROLE_HEADER) });
 }
 
-/** Browser-friendly variant used by server components (dev session cookies). */
-export async function resolveIdentityFromCookies(): Promise<Identity | null> {
-  if (isProduction) {
-    throw new InternalError("Development cookie identity is disabled in production");
-  }
+export { resolveSessionIdentity, SESSION_COOKIE };
+
+/**
+ * The authentication boundary (§3). The rest of the application depends only
+ * on Identity — never on the mechanism that produced it:
+ *  1. server-side session cookie (all environments),
+ *  2. development headers / dev cookies (development and test only).
+ */
+export async function authenticate(): Promise<Identity | null> {
   const jar = await cookies();
-  return parseIdentity({ userId: jar.get(DEV_USER_ID_COOKIE)?.value ?? null, role: jar.get(DEV_ROLE_COOKIE)?.value ?? null });
+  const session = await resolveSessionIdentity(jar.get(SESSION_COOKIE)?.value);
+  if (session) return session.identity;
+  if (isProduction) return null;
+  return parseIdentity({
+    userId: jar.get(DEV_USER_ID_COOKIE)?.value ?? null,
+    role: jar.get(DEV_ROLE_COOKIE)?.value ?? null,
+  });
+}
+
+export async function requireAuth(): Promise<Identity> {
+  const identity = await authenticate();
+  if (!identity) throw new UnauthorizedError();
+  return identity;
+}
+
+export interface CurrentUser extends Identity {
+  displayName: string;
+  email: string | null;
+  emailVerified: boolean;
+  phone: string | null;
+  country: string | null;
+  locale: string;
+  hasPassword: boolean;
+  /** All marketplace roles this account can switch into (§38). */
+  roles: ParticipantRole[];
+}
+
+/** Identity + profile fields for UI surfaces. */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const identity = await authenticate();
+  if (!identity) return null;
+  const [row] = await db
+    .select({
+      id: users.id,
+      role: users.role,
+      displayName: users.displayName,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+      phone: users.phone,
+      country: users.country,
+      locale: users.locale,
+      passwordHash: users.passwordHash,
+    })
+    .from(users)
+    .where(eq(users.id, identity.userId))
+    .limit(1);
+  if (!row) return null;
+  const entitlements = await listUserRoles(db, row.id);
+  return {
+    userId: row.id,
+    role: row.role,
+    displayName: row.displayName,
+    email: row.email,
+    emailVerified: row.emailVerifiedAt !== null,
+    phone: row.phone,
+    country: row.country,
+    locale: row.locale,
+    hasPassword: row.passwordHash !== null,
+    roles: entitlements.length > 0 ? entitlements : [row.role as ParticipantRole],
+  };
 }

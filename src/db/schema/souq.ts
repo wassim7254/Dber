@@ -12,7 +12,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { circleStateEnum, listingStatusEnum, participantPaymentStatusEnum } from "@/db/schema/enums";
+import {
+  circleStateEnum,
+  deliveryMethodEnum,
+  listingStatusEnum,
+  participantPaymentStatusEnum,
+} from "@/db/schema/enums";
 import { users } from "@/db/schema/identity";
 
 export const souqProducts = pgTable(
@@ -25,10 +30,21 @@ export const souqProducts = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull(),
     category: text("category").notNull().default("general"),
+    subcategory: text("subcategory").notNull().default(""),
+    sku: text("sku"),
     basePriceMinor: bigint("base_price_minor", { mode: "number" }).notNull(),
     currency: text("currency").notNull().default("MAD"),
-    status: listingStatusEnum("status").notNull().default("active"),
-    /** UI image descriptors (deterministic visual themes, no external assets). */
+    /** Sale unit shown to buyers ("1L bottle", "piece", "kg"). */
+    unit: text("unit").notNull().default("unit"),
+    /** Total units the seller makes available across all circles. */
+    maxAvailableQuantity: integer("max_available_quantity").notNull().default(0),
+    deliveryMethod: deliveryMethodEnum("delivery_method").notNull().default("delivery"),
+    deliveryFeeMinor: bigint("delivery_fee_minor", { mode: "number" }).notNull().default(0),
+    /** Estimated fulfillment time after a circle locks, in hours. */
+    fulfillmentHours: integer("fulfillment_hours").notNull().default(48),
+    location: text("location").notNull().default(""),
+    status: listingStatusEnum("status").notNull().default("draft"),
+    /** UI image descriptors / media ids (deterministic visual themes, no external assets). */
     images: jsonb("images").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
@@ -39,6 +55,9 @@ export const souqProducts = pgTable(
   },
   (t) => [
     check("souq_products_base_price_nonnegative", sql`${t.basePriceMinor} >= 0`),
+    check("souq_products_delivery_fee_nonnegative", sql`${t.deliveryFeeMinor} >= 0`),
+    check("souq_products_max_available_nonnegative", sql`${t.maxAvailableQuantity} >= 0`),
+    check("souq_products_fulfillment_positive", sql`${t.fulfillmentHours} > 0`),
     index("souq_products_seller_idx").on(t.sellerId),
     index("souq_products_status_idx").on(t.status),
   ],

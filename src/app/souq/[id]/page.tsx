@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
+import { SaveButton } from "@/components/engagement/save-button";
+import { savedItems } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { getCircleDetailView } from "@/domains/souq/application/souq-read";
 import { circleMachine } from "@/domains/souq/domain/machine";
@@ -12,12 +15,21 @@ import { formatMoney } from "@/lib/money";
 
 export default async function SouqCirclePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   const circle = await getCircleDetailView(db, id, identity?.userId ?? null).catch(() => null);
   if (!circle) notFound();
 
   const timeline = await getEntityTimeline(db, "souq_circle", circle.id);
   const isOwner = identity?.userId === circle.sellerId || identity?.role === "admin";
+  const alreadySaved = identity
+    ? (
+        await db
+          .select({ id: savedItems.id })
+          .from(savedItems)
+          .where(and(eq(savedItems.userId, identity.userId), eq(savedItems.entityType, "souq_product"), eq(savedItems.entityId, circle.productId)))
+          .limit(1)
+      ).length > 0
+    : false;
   const isOps = identity?.role === "ops_admin" || identity?.role === "admin";
   const ownerActions = circleMachine
     .allowedActions(circle.state as Parameters<typeof circleMachine.allowedActions>[0])
@@ -36,7 +48,7 @@ export default async function SouqCirclePage({ params }: { params: Promise<{ id:
   return (
     <div className="px-4 py-6 md:px-10 md:py-10">
       <div className="mx-auto max-w-[980px] space-y-6">
-        <Media kind={circle.images[0] ?? circle.category} title={circle.title} className="h-56 rounded-[var(--radius-card)] md:h-80" />
+        <Media kind={circle.images[0] ?? circle.category} title={circle.title} className="h-64 w-full rounded-[24px] md:h-[380px]" />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-6">
@@ -71,6 +83,12 @@ export default async function SouqCirclePage({ params }: { params: Promise<{ id:
                   </p>
                 ) : null}
               </div>
+              <SaveButton
+                entityType="souq_product"
+                entityId={circle.productId}
+                initiallySaved={alreadySaved}
+                signedIn={identity !== null}
+              />
               <ProgressBar
                 value={circle.currentQuantity}
                 max={circle.targetQuantity}
@@ -129,10 +147,10 @@ export default async function SouqCirclePage({ params }: { params: Promise<{ id:
               ) : (
                 <div className="space-y-3">
                   <p className="text-[13.5px] leading-relaxed text-muted">
-                    Sign in with a demo buyer account to join this group.
+                    Sign in to join this group.
                   </p>
                   <a
-                    href="/welcome"
+                    href="/login"
                     className="flex h-11 items-center justify-center rounded-xl bg-green text-[14px] font-semibold text-bg hover:bg-green-dark"
                   >
                     Sign in

@@ -118,17 +118,16 @@ export function Media({
   title: string;
   className?: string;
 }) {
+  // Real uploads are served from /api/v1/media/<id>; descriptors render the
+  // layered gradient art (§47 — no fake production URLs).
+  if (kind.startsWith("/api/v1/media/") || kind.startsWith("http")) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={kind} alt={title} className={`object-cover ${className}`} loading="lazy" />
+    );
+  }
   const key = kind && kind.length > 0 ? kind : "default";
-  return (
-    <div className={`dber-media ${key} ${className}`} role="img" aria-label={title}>
-      <span className="absolute left-4 top-3 select-none font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">
-        DBER
-      </span>
-      <span className="absolute bottom-3 right-4 select-none text-[64px] font-semibold leading-none text-white/25">
-        {title.slice(0, 1)}
-      </span>
-    </div>
-  );
+  return <div className={`dber-media ${key} ${className}`} role="img" aria-label={title} />;
 }
 
 export function EmptyState({

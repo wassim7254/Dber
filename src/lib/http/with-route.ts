@@ -7,6 +7,7 @@ import { runWithRequestContext, createRequestContext } from "@/infrastructure/re
 import type { Identity, Role } from "@/lib/auth/types";
 import { requireRole } from "@/lib/auth/rbac";
 import { resolveIdentityFromHeaders, parseIdentityRaw } from "@/lib/auth/identity";
+import { resolveSessionIdentity, SESSION_COOKIE } from "@/lib/auth/session";
 import { asPgError, translatePersistenceError } from "@/lib/persistence/pg-errors";
 import { DomainError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { enforceRateLimit } from "@/lib/http/rate-limit";
@@ -62,13 +63,6 @@ function requestHashOf(body: unknown): string {
   return createHash("sha256").update(canonicalJson(body)).digest("hex");
 }
 
-function resolveIdentityFromRequestCookies(req: NextRequest) {
-  return parseIdentityRaw({
-    userId: req.cookies.get("dber_user_id")?.value ?? null,
-    role: req.cookies.get("dber_role")?.value ?? null,
-  });
-}
-
 async function parseBody<T>(req: NextRequest, schema: z.ZodType<T>): Promise<T> {
   let raw: unknown;
   try {
@@ -88,10 +82,16 @@ async function parseBody<T>(req: NextRequest, schema: z.ZodType<T>): Promise<T> 
   return parsed.data;
 }
 
-function resolveRequestIdentity(req: NextRequest) {
-  // Development identity: plaintext headers (API/testing) or dev session
-  // cookies (browser flows). Never trusted in production (§50).
-  return resolveIdentityFromHeaders(req.headers) ?? resolveIdentityFromRequestCookies(req);
+async function resolveRequestIdentity(req: NextRequest): Promise<Identity | null> {
+  // 1. Server-side session (all environments).
+  const session = await resolveSessionIdentity(req.cookies.get(SESSION_COOKIE)?.value);
+  if (session) return session.identity;
+  // 2. Development identity: plaintext headers (API/testing) or dev session
+  //    cookies (browser flows). Never trusted in production (§50).
+  return resolveIdentityFromHeaders(req.headers) ?? parseIdentityRaw({
+    userId: req.cookies.get("dber_user_id")?.value ?? null,
+    role: req.cookies.get("dber_role")?.value ?? null,
+  });
 }
 
 /**
@@ -110,7 +110,7 @@ export function mutationRoute<TBody>(
       createRequestContext({ requestId, kind: "http" }),
       async (): Promise<Response> => {
         try {
-          const identity = resolveRequestIdentity(req);
+          const identity = await resolveRequestIdentity(req);
           if (!identity) throw new UnauthorizedError();
           requireRole(identity, config.auth);
           if (config.rateLimit) {
@@ -193,7 +193,7 @@ export function queryRoute(
       createRequestContext({ requestId, kind: "http" }),
       async (): Promise<Response> => {
         try {
-          const identity = resolveRequestIdentity(req);
+          const identity = await resolveRequestIdentity(req);
           if (config.auth) {
             if (!identity) throw new UnauthorizedError();
             requireRole(identity, config.auth);

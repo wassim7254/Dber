@@ -11,6 +11,7 @@ import {
   enqueuePaymentIntent,
 } from "@/domains/payments/infrastructure/payment-repository";
 import type { Identity } from "@/lib/auth/types";
+import { createPayout } from "@/domains/payments/application/payout-lifecycle";
 import { requireSelf } from "@/lib/auth/rbac";
 import {
   ConflictError,
@@ -43,10 +44,19 @@ export interface CreateProductInput {
   title: string;
   description: string;
   category: string;
+  subcategory?: string;
+  sku?: string;
   basePriceMinor: number;
+  unit?: string;
+  maxAvailableQuantity: number;
+  deliveryMethod: "delivery" | "pickup" | "both";
+  deliveryFeeMinor?: number;
+  fulfillmentHours?: number;
+  location?: string;
   images: string[];
 }
 
+/** Products start as DRAFT; publishing is a separate gated transition (§6). */
 export async function createProduct(
   tx: Tx,
   identity: Identity,
@@ -59,9 +69,17 @@ export async function createProduct(
       title: input.title,
       description: input.description,
       category: input.category,
+      subcategory: input.subcategory ?? "",
+      sku: input.sku ?? null,
       basePriceMinor: input.basePriceMinor,
+      unit: input.unit ?? "unit",
+      maxAvailableQuantity: input.maxAvailableQuantity,
+      deliveryMethod: input.deliveryMethod,
+      deliveryFeeMinor: input.deliveryFeeMinor ?? 0,
+      fulfillmentHours: input.fulfillmentHours ?? 48,
+      location: input.location ?? "",
       images: input.images,
-      status: "active",
+      status: "draft",
     })
     .returning({ id: souqProducts.id });
   await recordAudit(tx, {
@@ -70,9 +88,129 @@ export async function createProduct(
     action: "souq.product.created",
     entityType: "souq_product",
     entityId: product.id,
-    after: { title: input.title, basePriceMinor: input.basePriceMinor },
+    after: { title: input.title, basePriceMinor: input.basePriceMinor, state: "draft" },
   });
   return { productId: product.id };
+}
+
+export type ProductUpdateInput = Partial<CreateProductInput>;
+
+export async function updateProduct(
+  tx: Tx,
+  identity: Identity,
+  productId: string,
+  input: ProductUpdateInput,
+): Promise<{ productId: string }> {
+  const [product] = await tx.select().from(souqProducts).where(eq(souqProducts.id, productId)).limit(1);
+  if (!product) throw new ResourceNotFoundError("Product", productId);
+  requireSelf(identity, product.sellerId, "product");
+  if (input.title !== undefined && input.title.length < 3) {
+    throw new ValidationError("The product title is too short");
+  }
+  const [updated] = await tx
+    .update(souqProducts)
+    .set({
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.category !== undefined ? { category: input.category } : {}),
+      ...(input.subcategory !== undefined ? { subcategory: input.subcategory } : {}),
+      ...(input.sku !== undefined ? { sku: input.sku } : {}),
+      ...(input.basePriceMinor !== undefined ? { basePriceMinor: input.basePriceMinor } : {}),
+      ...(input.unit !== undefined ? { unit: input.unit } : {}),
+      ...(input.maxAvailableQuantity !== undefined ? { maxAvailableQuantity: input.maxAvailableQuantity } : {}),
+      ...(input.deliveryMethod !== undefined ? { deliveryMethod: input.deliveryMethod } : {}),
+      ...(input.deliveryFeeMinor !== undefined ? { deliveryFeeMinor: input.deliveryFeeMinor } : {}),
+      ...(input.fulfillmentHours !== undefined ? { fulfillmentHours: input.fulfillmentHours } : {}),
+      ...(input.location !== undefined ? { location: input.location } : {}),
+      ...(input.images !== undefined ? { images: input.images } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(souqProducts.id, productId))
+    .returning({ id: souqProducts.id });
+  await recordAudit(tx, {
+    actorId: identity.userId,
+    actorRole: identity.role,
+    action: "souq.product.updated",
+    entityType: "souq_product",
+    entityId: productId,
+    before: { title: product.title, basePriceMinor: product.basePriceMinor, maxAvailableQuantity: product.maxAvailableQuantity },
+    after: input as JsonObject,
+  });
+  return { productId: updated.id };
+}
+
+export type ProductLifecycleAction = "publish" | "pause" | "archive" | "restore";
+
+const PRODUCT_TRANSITIONS: Record<
+  ProductLifecycleAction,
+  { from: readonly ("draft" | "active" | "paused" | "archived")[]; to: "draft" | "active" | "paused" | "archived" }
+> = {
+  publish: { from: ["draft", "paused"], to: "active" },
+  pause: { from: ["active"], to: "paused" },
+  archive: { from: ["draft", "active", "paused"], to: "archived" },
+  restore: { from: ["archived"], to: "draft" },
+};
+
+/**
+ * Publishing gate (§6): a listing cannot go live with missing media, an
+ * invalid price, zero available quantity, or no location when pickup is
+ * offered. Whatever the wizard validated client-side is re-validated here.
+ */
+export async function transitionProduct(
+  tx: Tx,
+  identity: Identity,
+  productId: string,
+  action: ProductLifecycleAction,
+): Promise<{ productId: string; state: string }> {
+  const [product] = await tx.select().from(souqProducts).where(eq(souqProducts.id, productId)).limit(1);
+  if (!product) throw new ResourceNotFoundError("Product", productId);
+  requireSelf(identity, product.sellerId, "product");
+
+  const transition = PRODUCT_TRANSITIONS[action];
+  if (!transition.from.includes(product.status)) {
+    throw new ConflictError(`A ${product.status} product cannot be ${action === "publish" ? "published" : action + "d"}`);
+  }
+  if (action === "publish") {
+    if (product.images.length === 0) {
+      throw new ValidationError("Add at least one photo before publishing");
+    }
+    if (product.basePriceMinor <= 0) {
+      throw new ValidationError("Set a price greater than zero before publishing");
+    }
+    if (product.maxAvailableQuantity <= 0) {
+      throw new ValidationError("Set the available quantity before publishing");
+    }
+    if (product.deliveryMethod !== "delivery" && product.location.trim().length === 0) {
+      throw new ValidationError("Add a pickup location before publishing");
+    }
+  }
+  const [updated] = await tx
+    .update(souqProducts)
+    .set({ status: transition.to, updatedAt: new Date() })
+    .where(and(eq(souqProducts.id, productId), eq(souqProducts.status, product.status)))
+    .returning({ id: souqProducts.id });
+  if (!updated) throw new ConflictError("The product was changed concurrently — retry");
+
+  await recordAudit(tx, {
+    actorId: identity.userId,
+    actorRole: identity.role,
+    action: `souq.product.${action}`,
+    entityType: "souq_product",
+    entityId: productId,
+    before: { status: product.status },
+    after: { status: transition.to },
+  });
+  if (identity.role === "seller") {
+    await recordProviderAction(tx, {
+      providerId: identity.userId,
+      providerRole: "seller",
+      action: `souq.product.${action}`,
+      entityType: "souq_product",
+      entityId: productId,
+      metadata: { status: transition.to },
+    });
+  }
+  return { productId, state: transition.to };
 }
 
 //
@@ -322,6 +460,22 @@ export async function transitionCircle(tx: Tx, input: TransitionCircleInput): Pr
     action: input.action,
     ...(input.reason ? { reason: input.reason } : {}),
   };
+
+  // Seller earnings are settled when the circle completes (§22/§23).
+  if (input.action === "complete") {
+    const captured = await listCirclePaymentsInStates(tx, circle.id, ["captured"]);
+    const grossMinor = captured.reduce((sum, payment) => sum + payment.amountMinor, 0);
+    if (grossMinor > 0) {
+      await createPayout(tx, {
+        entityType: "souq_circle",
+        entityId: circle.id,
+        ownerId: circle.sellerId,
+        grossMinor,
+        currency: asCurrency(circle.currency),
+      });
+      metadata.payoutGrossMinor = grossMinor;
+    }
+  }
 
   // Financial unwind for terminal failure paths.
   if (input.action === "cancel" || input.action === "fail_close") {

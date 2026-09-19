@@ -1,4 +1,4 @@
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { redirect } from "next/navigation";
 import { isPrivileged } from "@/lib/auth/rbac";
 import { OutboxTableMini } from "@/components/dber/tables";
@@ -6,7 +6,7 @@ import { OutboxTableMini } from "@/components/dber/tables";
 export const metadata = { title: "Outbox — Admin" };
 
 export default async function AdminOutboxPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   if (!isPrivileged(identity.role)) redirect("/");
 

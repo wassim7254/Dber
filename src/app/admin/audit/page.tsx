@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { auditLog, users } from "@/db/schema";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { isPrivileged } from "@/lib/auth/rbac";
 import { redirect } from "next/navigation";
 import { AdminTableShell } from "@/components/dber/tables";
@@ -11,7 +11,7 @@ import { formatTimestamp } from "@/components/dber/ui";
 export const metadata = { title: "Audit — Admin" };
 
 export default async function AdminAuditPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   if (!isPrivileged(identity.role)) redirect("/");
 

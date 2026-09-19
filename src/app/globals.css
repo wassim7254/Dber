@@ -16,10 +16,19 @@
   --color-danger-soft: #f7e8e6;
   --color-success: #5c8062;
   --color-success-soft: #e7efe8;
-  --color-khidma: #54617a;
+  /* KHIDMA — warm terracotta / clay / sand (§38) */
+  --color-clay: #a05c2f;
+  --color-clay-dark: #7c4623;
+  --color-clay-soft: #f3e4d8;
+  /* KRAYA — deep indigo / sky / amber accent (§38) */
+  --color-azure: #3f5c8f;
+  --color-azure-dark: #27406b;
+  --color-azure-soft: #e4ebf5;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --radius-card: 14px;
+  --radius-card: 20px;
+  --shadow-card: 0 1px 2px rgba(23, 24, 21, 0.04), 0 8px 24px rgba(23, 24, 21, 0.05);
+  --shadow-float: 0 12px 32px rgba(23, 24, 21, 0.16), 0 2px 8px rgba(23, 24, 21, 0.08);
 }
 
 :root {
@@ -41,40 +50,78 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-green);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Editorial product/asset media — deterministic CSS art, no external assets. */
+/* Soft editorial wash behind page headers — the marketplace "morning light" feel. */
+.dber-page-glow {
+  position: relative;
+}
+.dber-page-glow::before {
+  content: "";
+  position: absolute;
+  inset: -2rem -1rem auto -1rem;
+  height: 340px;
+  pointer-events: none;
+  background:
+    radial-gradient(64% 68% at 18% 0%, rgba(231, 239, 232, 0.9), transparent 70%),
+    radial-gradient(52% 60% at 86% 4%, rgba(244, 236, 221, 0.85), transparent 72%),
+    radial-gradient(40% 44% at 55% 12%, rgba(231, 236, 245, 0.55), transparent 70%);
+  filter: blur(2px);
+  z-index: -1;
+}
+
+/* Editorial product/asset media — layered soft gradients standing in for
+   photography; content renders over them with no watermark (§47). */
 .dber-media {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+.dber-media::before {
+  content: "";
+  position: absolute;
+  right: -18%;
+  top: -32%;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.42), transparent);
+  z-index: -1;
 }
 .dber-media::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 90% at 85% 8%, rgb(255 255 255 / 0.28), transparent 55%),
-    radial-gradient(90% 70% at 12% 90%, rgb(0 0 0 / 0.10), transparent 60%);
+    radial-gradient(120% 90% at 85% 8%, rgb(255 255 255 / 0.26), transparent 55%),
+    linear-gradient(180deg, transparent 55%, rgb(23 24 21 / 0.10));
+  pointer-events: none;
 }
-.dber-media.olive { background: linear-gradient(135deg, #5c6b4f, #8a9a75 55%, #c9cfb4); }
-.dber-media.audio { background: linear-gradient(135deg, #2e3230, #55605a 60%, #93a094); }
-.dber-media.argan { background: linear-gradient(135deg, #b98f4e, #d9bd8a 60%, #f0e4c8); }
-.dber-media.kitchen { background: linear-gradient(135deg, #59616b, #9aa4ad 60%, #d5dadd); }
-.dber-media.coffee { background: linear-gradient(135deg, #43302a, #7d5c48 60%, #c2a189); }
-.dber-media.rug { background: linear-gradient(135deg, #8c4f3f, #c08a6d 55%, #e6cdb4); }
-.dber-media.villa { background: linear-gradient(135deg, #4f7382, #86aab2 60%, #d3e3e4); }
-.dber-media.camera { background: linear-gradient(135deg, #23272b, #4c545b 60%, #9aa3aa); }
-.dber-media.van { background: linear-gradient(135deg, #72604a, #a89372 60%, #ddd0b4); }
-.dber-media.souq { background: linear-gradient(135deg, #61775a, #8fa383 60%, #d8e2cf); }
-.dber-media.khidma { background: linear-gradient(135deg, #54617a, #8494ab 60%, #ccd5e2); }
-.dber-media.kraya { background: linear-gradient(135deg, #8a6f46, #b99b62 60%, #e7d9bb); }
-.dber-media.default { background: linear-gradient(135deg, #61775a, #93a78b 60%, #d8e2cf); }
+.dber-media.olive { background: linear-gradient(150deg, #7d8f6d, #a7b897 52%, #dbe3cb); }
+.dber-media.audio { background: linear-gradient(150deg, #3b4340, #6a7771 55%, #b3beba); }
+.dber-media.argan { background: linear-gradient(150deg, #c99a58, #e0c18b 55%, #f5e8cf); }
+.dber-media.kitchen { background: linear-gradient(150deg, #6c7681, #a3adb6 55%, #dcdfe2); }
+.dber-media.coffee { background: linear-gradient(150deg, #5a4032, #8d6a52 55%, #cbb098); }
+.dber-media.rug { background: linear-gradient(150deg, #9a5a48, #c78f74 55%, #e9d2bb); }
+.dber-media.villa { background: linear-gradient(150deg, #5b7e8d, #8fb0b8 55%, #d6e5e6); }
+.dber-media.camera { background: linear-gradient(150deg, #2c3238, #555f68 55%, #99a3ab); }
+.dber-media.van { background: linear-gradient(150deg, #7d6b52, #ab9677 55%, #ddd2ba); }
+/* SOUQ categories — fresh grocery-aisle tones */
+.dber-media.food { background: linear-gradient(150deg, #7fa05e, #aec98d 55%, #e3ecc9); }
+.dber-media.electronics { background: linear-gradient(150deg, #4a5560, #7c8a97 55%, #c3cdd6); }
+.dber-media.beauty { background: linear-gradient(150deg, #c08a8f, #dcadb0 55%, #f2dcd9); }
+.dber-media.home { background: linear-gradient(150deg, #a08a63, #c9b389 55%, #ece0c5); }
+.dber-media.fashion { background: linear-gradient(150deg, #8f7fa0, #b3a6c2 55%, #e2dae9); }
+.dber-media.kids { background: linear-gradient(150deg, #d99a4e, #ecbb7d 55%, #f7e3c1); }
+.dber-media.souq { background: linear-gradient(150deg, #61775a, #93a78b 58%, #dce6d1); }
+.dber-media.khidma { background: linear-gradient(150deg, #a05c2f, #c68a5d 58%, #eed9c2); }
+.dber-media.kraya { background: linear-gradient(150deg, #3f5c8f, #7391bd 58%, #d2deec); }
+.dber-media.default { background: linear-gradient(150deg, #75816d, #a3b09a 58%, #dde4d3); }
 
 @media (prefers-reduced-motion: reduce) {
   *,

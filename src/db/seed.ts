@@ -5,6 +5,8 @@
 import { createHash } from "node:crypto";
 import "dotenv/config";
 
+import { hashPassword } from "@/lib/auth/password";
+
 import { db, sql } from "@/db/client";
 import {
   disputes,
@@ -53,7 +55,16 @@ async function main(): Promise<void> {
     { id: id("user.ops"), role: "ops_admin" as const, displayName: "Ops — Hicham", email: "ops@dber.dev" },
     { id: id("user.admin"), role: "admin" as const, displayName: "Admin — Laila", email: "admin@dber.dev" },
   ];
-  await db.insert(users).values(userRows).onConflictDoNothing();
+  // Dev-only passwords (never real credentials, §67). Every seeded account
+  // signs in on /login with the password below.
+  const devPasswordHash = await hashPassword("dber-dev-1234");
+  await db
+    .insert(users)
+    .values(userRows.map((row) => ({ ...row, passwordHash: devPasswordHash, emailVerifiedAt: new Date() })))
+    .onConflictDoUpdate({
+      target: users.id,
+      set: { passwordHash: devPasswordHash, emailVerifiedAt: new Date() },
+    });
 
   // ── SOUQ products & circles ────────────────────────────────────────────
   const productRows = [

@@ -49,6 +49,24 @@ const STATES: Record<string, StatusPresentation> = {
   // Refunds
   provider_pending: { label: "Processing", tone: "progress" },
 
+  // Payouts
+  paid: { label: "Paid out", tone: "success" },
+  processing: { label: "Settling", tone: "progress" },
+
+  // Support tickets
+  closed: { label: "Closed", tone: "muted" },
+
+  // Listing statuses
+  paused: { label: "Paused", tone: "muted" },
+  archived: { label: "Archived", tone: "muted" },
+
+  // Account
+  email_verified: { label: "Email verified", tone: "success" },
+  email_unverified: { label: "Email unverified", tone: "warn" },
+  unverified: { label: "Unverified", tone: "muted" },
+  pending_review: { label: "Pending review", tone: "warn" },
+  verified: { label: "Verified", tone: "success" },
+
   // Cancellations & disputes
   pending: { label: "Pending review", tone: "warn" },
   approved: { label: "Approved", tone: "success" },

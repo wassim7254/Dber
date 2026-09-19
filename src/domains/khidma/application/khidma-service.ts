@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { khidmaAvailability, khidmaServices, khidmaBookings, serviceQuotes, serviceRequests } from "@/db/schema";
 import type { Tx, DbExecutor } from "@/db/tx";
@@ -30,6 +30,7 @@ import {
   type KhidmaBookingUserAction,
 } from "@/domains/khidma/domain/machine";
 import { khidmaCancellationPolicy } from "@/domains/khidma/domain/policy";
+import { createPayout } from "@/domains/payments/application/payout-lifecycle";
 import {
   getBookingById,
   getServiceById,
@@ -72,7 +73,7 @@ export async function createService(
       category: input.category,
       basePriceMinor: input.basePriceMinor,
       durationMinutes: input.durationMinutes,
-      status: "active",
+      status: "draft",
     })
     .returning({ id: khidmaServices.id });
   await recordAudit(tx, {
@@ -84,6 +85,107 @@ export async function createService(
     after: { title: input.title, basePriceMinor: input.basePriceMinor },
   });
   return { serviceId: service.id };
+}
+
+export type ServiceUpdateInput = Partial<CreateServiceInput>;
+
+export async function updateService(
+  tx: Tx,
+  identity: Identity,
+  serviceId: string,
+  input: ServiceUpdateInput,
+): Promise<{ serviceId: string }> {
+  const [service] = await tx.select().from(khidmaServices).where(eq(khidmaServices.id, serviceId)).limit(1);
+  if (!service) throw new ResourceNotFoundError("Service", serviceId);
+  requireSelf(identity, service.professionalId, "service");
+  const [updated] = await tx
+    .update(khidmaServices)
+    .set({
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.specialty !== undefined ? { specialty: input.specialty } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.category !== undefined ? { category: input.category } : {}),
+      ...(input.basePriceMinor !== undefined ? { basePriceMinor: input.basePriceMinor } : {}),
+      ...(input.durationMinutes !== undefined ? { durationMinutes: input.durationMinutes } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(khidmaServices.id, serviceId))
+    .returning({ id: khidmaServices.id });
+  await recordAudit(tx, {
+    actorId: identity.userId,
+    actorRole: identity.role,
+    action: "khidma.service.updated",
+    entityType: "khidma_service",
+    entityId: serviceId,
+    before: { title: service.title, basePriceMinor: service.basePriceMinor, durationMinutes: service.durationMinutes },
+    after: input as unknown as JsonObject,
+  });
+  return { serviceId: updated.id };
+}
+
+export type ServiceLifecycleAction = "publish" | "pause" | "archive" | "restore";
+
+const SERVICE_TRANSITIONS: Record<
+  ServiceLifecycleAction,
+  { from: readonly ("draft" | "active" | "paused" | "archived")[]; to: "draft" | "active" | "paused" | "archived" }
+> = {
+  publish: { from: ["draft", "paused"], to: "active" },
+  pause: { from: ["active"], to: "paused" },
+  archive: { from: ["draft", "active", "paused"], to: "archived" },
+  restore: { from: ["archived"], to: "draft" },
+};
+
+/** Publishing gate for services (§9): a live service needs a real description and price. */
+export async function transitionService(
+  tx: Tx,
+  identity: Identity,
+  serviceId: string,
+  action: ServiceLifecycleAction,
+): Promise<{ serviceId: string; state: string }> {
+  const [service] = await tx.select().from(khidmaServices).where(eq(khidmaServices.id, serviceId)).limit(1);
+  if (!service) throw new ResourceNotFoundError("Service", serviceId);
+  requireSelf(identity, service.professionalId, "service");
+  const transition = SERVICE_TRANSITIONS[action];
+  if (!transition.from.includes(service.status)) {
+    throw new ConflictError(`A ${service.status} service cannot be ${action === "publish" ? "published" : action + "d"}`);
+  }
+  if (action === "publish") {
+    if (service.description.trim().length < 10) {
+      throw new ValidationError("Describe what you do before publishing (at least 10 characters)");
+    }
+    if (service.basePriceMinor <= 0) {
+      throw new ValidationError("Set a starting price before publishing");
+    }
+    if (service.durationMinutes <= 0) {
+      throw new ValidationError("Set a realistic duration before publishing");
+    }
+  }
+  const [updated] = await tx
+    .update(khidmaServices)
+    .set({ status: transition.to, updatedAt: new Date() })
+    .where(and(eq(khidmaServices.id, serviceId), eq(khidmaServices.status, service.status)))
+    .returning({ id: khidmaServices.id });
+  if (!updated) throw new ConflictError("The service was changed concurrently — retry");
+  await recordAudit(tx, {
+    actorId: identity.userId,
+    actorRole: identity.role,
+    action: `khidma.service.${action}`,
+    entityType: "khidma_service",
+    entityId: serviceId,
+    before: { status: service.status },
+    after: { status: transition.to },
+  });
+  if (identity.role === "professional") {
+    await recordProviderAction(tx, {
+      providerId: identity.userId,
+      providerRole: "professional",
+      action: `khidma.service.${action}`,
+      entityType: "khidma_service",
+      entityId: serviceId,
+      metadata: { status: transition.to },
+    });
+  }
+  return { serviceId, state: transition.to };
 }
 
 export interface AvailabilitySlotInput {
@@ -395,6 +497,17 @@ export async function transitionBooking(tx: Tx, input: TransitionBookingInput): 
       actor: input.identity,
       refundFull: input.identity.userId === booking.professionalId,
       reason: input.reason ?? "Booking cancelled",
+    });
+  }
+
+  // Professional earnings settle when the booking completes (§22/§23).
+  if (input.action === "complete") {
+    await createPayout(tx, {
+      entityType: "khidma_booking",
+      entityId: booking.id,
+      ownerId: booking.professionalId,
+      grossMinor: booking.priceSnapshotMinor,
+      currency: asCurrency(booking.currency),
     });
   }
 

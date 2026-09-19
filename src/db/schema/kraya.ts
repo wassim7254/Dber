@@ -16,6 +16,7 @@ import {
   assetCategoryEnum,
   krayaBookingStateEnum,
   listingStatusEnum,
+  payoutEntityEnum,
   payoutStateEnum,
   paymentProviderEnum,
 } from "@/db/schema/enums";
@@ -150,9 +151,10 @@ export const rentalContracts = pgTable(
 );
 
 /**
- * Provider earnings ledger. One row per completed rental: gross charge minus
- * the platform fee, settled to the owner via the payment provider. Created
- * in the completion transaction, settled by the outbox worker.
+ * Provider earnings ledger. One row per completed transaction (a SOUQ circle,
+ * a KHIDMA booking, or a KRAYA rental): gross charge minus the platform fee,
+ * settled to the provider via the payment provider. Created in the completion
+ * transaction, settled by the outbox worker.
  */
 export const payouts = pgTable(
   "payouts",
@@ -161,9 +163,9 @@ export const payouts = pgTable(
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id),
-    bookingId: uuid("booking_id")
-      .notNull()
-      .references(() => rentalBookings.id),
+    /** The completed business object this earning derives from. */
+    entityType: payoutEntityEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
     grossMinor: bigint("gross_minor", { mode: "number" }).notNull(),
     feeMinor: bigint("fee_minor", { mode: "number" }).notNull(),
     amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
@@ -180,7 +182,7 @@ export const payouts = pgTable(
   },
   (t) => [
     check("payouts_amounts_positive", sql`${t.grossMinor} > 0 AND ${t.feeMinor} >= 0 AND ${t.amountMinor} = ${t.grossMinor} - ${t.feeMinor} AND ${t.amountMinor} > 0`),
-    unique("payouts_booking_unique").on(t.bookingId),
+    unique("payouts_entity_unique").on(t.entityType, t.entityId),
     unique("payouts_provider_ref_unique").on(t.provider, t.providerRef),
     index("payouts_owner_idx").on(t.ownerId, t.state),
     index("payouts_state_idx").on(t.state),

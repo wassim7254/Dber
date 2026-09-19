@@ -4,7 +4,8 @@ import { payments, refunds } from "@/db/schema";
 import type { DbExecutor, Tx } from "@/db/tx";
 import { recordAudit } from "@/infrastructure/audit/writer";
 import { logger } from "@/infrastructure/logging/logger";
-import { MockGateway, expectedAuthRef, expectedRefundRef } from "@/infrastructure/payments/mock-gateway";
+import { expectedAuthRef, expectedRefundRef } from "@/infrastructure/payments/mock-gateway";
+import { getGateway } from "@/infrastructure/payments/gateway-factory";
 import {
   getPaymentById,
   getRefundById,
@@ -13,7 +14,7 @@ import {
 import { ingestProviderEvent } from "@/domains/payments/application/ingest";
 import { asCurrency } from "@/lib/money";
 
-const gateway = new MockGateway();
+const gateway = getGateway();
 type Db = DbExecutor;
 
 /**
@@ -52,18 +53,24 @@ export async function handlePaymentRequested(db: Db, payload: { paymentId: strin
     amountMinor: current.amountMinor,
     currency: asCurrency(current.currency),
   });
+  if (result.outcome === "pending") {
+    // Provider accepted but the effect awaits customer confirmation — the
+    // canonical authorized state lands only from a verified provider event.
+    logger.info("payment.authorize_pending_provider_event", { paymentId: payment.id });
+    return;
+  }
   await ingestProviderEvent(
     db,
     result.outcome === "succeeded"
       ? {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "payment.authorized",
           payload: { paymentId: payment.id },
           signatureVerified: true,
         }
       : {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "payment.failed",
           payload: { paymentId: payment.id, reason: result.failureReason ?? "declined" },
@@ -104,14 +111,14 @@ export async function handleCaptureRequested(db: Db, payload: { paymentId: strin
     db,
     result.outcome === "succeeded"
       ? {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "payment.captured",
           payload: { paymentId: payment.id },
           signatureVerified: true,
         }
       : {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "payment.capture_failed",
           payload: { paymentId: payment.id, reason: result.failureReason ?? "processor_unavailable" },
@@ -148,7 +155,7 @@ export async function handleVoidRequested(db: Db, payload: { paymentId: string }
     idempotencyKey: `void_${payment.id}`,
   });
   await ingestProviderEvent(db, {
-    provider: "mock",
+    provider: gateway.provider,
     providerEventId: result.providerEventId,
     eventType: "payment.voided",
     payload: { paymentId: payment.id },
@@ -199,18 +206,22 @@ export async function handleRefundRequested(db: Db, payload: { refundId: string 
     amountMinor: current.amountMinor,
     currency: asCurrency(paymentForCurrency?.currency ?? "MAD"),
   });
+  if (result.outcome === "pending") {
+    logger.info("refund.pending_provider_event", { refundId: current.id });
+    return;
+  }
   await ingestProviderEvent(
     db,
     result.outcome === "succeeded"
       ? {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "refund.completed",
           payload: { refundId: current.id },
           signatureVerified: true,
         }
       : {
-          provider: "mock",
+          provider: gateway.provider,
           providerEventId: result.providerEventId,
           eventType: "refund.failed",
           payload: { refundId: current.id, reason: result.failureReason ?? "refund_failed" },
@@ -242,7 +253,7 @@ export async function reconcileStuckPayments(db: Db): Promise<{ reconciled: numb
     const providerState = await gateway.getPayment(payment.providerRef);
     if (providerState !== "authorized" && providerState !== "captured") continue;
     await ingestProviderEvent(db, {
-      provider: "mock",
+      provider: gateway.provider,
       providerEventId: `mock_evt_recon_${payment.id}:${providerState}`,
       eventType: providerState === "authorized" ? "payment.authorized" : "payment.captured",
       payload: { paymentId: payment.id, source: "reconciliation" },

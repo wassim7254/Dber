@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { db } from "@/db/client";
 import { getActivityFeed, type ActivityEntry } from "@/lib/activity-read";
 import { EmptyState, SectionTitle } from "@/components/dber/ui";
@@ -37,7 +37,7 @@ export default async function ActivityPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   const { tab: tabParam } = await searchParams;
   const tab: Tab = TABS.includes((tabParam ?? "all") as Tab) ? ((tabParam ?? "all") as Tab) : "all";

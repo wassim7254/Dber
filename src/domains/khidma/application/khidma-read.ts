@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { users } from "@/db/schema";
+import { professionalProfiles, users } from "@/db/schema";
 import type { DbExecutor } from "@/db/tx";
 import { ResourceNotFoundError } from "@/lib/errors";
 import {
@@ -36,6 +36,13 @@ export async function listServiceCards(db: DbExecutor, search: string | null, li
 export interface ProfessionalProfileDto {
   professionalId: string;
   displayName: string;
+  headline: string | null;
+  bio: string | null;
+  specialties: string[];
+  serviceArea: string;
+  yearsExperience: number | null;
+  languages: string[];
+  verificationStatus: "unverified" | "pending_review" | "verified";
   services: {
     id: string;
     title: string;
@@ -57,9 +64,29 @@ export async function getProfessionalProfile(
   if (!professional) throw new ResourceNotFoundError("Professional", professionalId);
   const services = await listServicesByProfessional(db, professionalId);
   const availability = await listAvailability(db, professionalId);
+  const [profile] = await db
+    .select({
+      headline: professionalProfiles.headline,
+      bio: professionalProfiles.bio,
+      specialties: professionalProfiles.specialties,
+      serviceArea: professionalProfiles.serviceArea,
+      yearsExperience: professionalProfiles.yearsExperience,
+      languages: professionalProfiles.languages,
+      verificationStatus: professionalProfiles.verificationStatus,
+    })
+    .from(professionalProfiles)
+    .where(eq(professionalProfiles.userId, professionalId))
+    .limit(1);
   return {
     professionalId,
     displayName: professional.displayName,
+    headline: profile?.headline ?? null,
+    bio: profile?.bio ?? null,
+    specialties: profile?.specialties ?? [],
+    serviceArea: profile?.serviceArea ?? "",
+    yearsExperience: profile?.yearsExperience ?? null,
+    languages: profile?.languages ?? [],
+    verificationStatus: profile?.verificationStatus ?? "unverified",
     services: services
       .filter((service) => service.status === "active")
       .map((service) => ({

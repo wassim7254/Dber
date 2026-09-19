@@ -1,7 +1,13 @@
 import { notFound } from "next/navigation";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { getProfessionalProfile } from "@/domains/khidma/application/khidma-read";
+import { authenticate } from "@/lib/auth/identity";
+import { SaveButton } from "@/components/engagement/save-button";
+import { savedItems } from "@/db/schema";
+import { getSubjectRating, listReviewsForSubject } from "@/domains/engagement/reviews-service";
+import { RatingStars, ReviewList } from "@/components/engagement/rating-stars";
 import { Card, DberMoney, Eyebrow } from "@/components/dber/ui";
 import { Icon } from "@/components/dber/icon";
 import { RequestForm } from "@/components/actions/khidma-actions";
@@ -10,8 +16,22 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default async function ProfessionalProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const identity = await authenticate();
   const profile = await getProfessionalProfile(db, id).catch(() => null);
   if (!profile) notFound();
+  const alreadySaved = identity
+    ? (
+        await db
+          .select({ id: savedItems.id })
+          .from(savedItems)
+          .where(and(eq(savedItems.userId, identity.userId), eq(savedItems.entityType, "professional"), eq(savedItems.entityId, id)))
+          .limit(1)
+      ).length > 0
+    : false;
+  const [rating, professionalReviews] = await Promise.all([
+    getSubjectRating(db, id),
+    listReviewsForSubject(db, id),
+  ]);
 
   const initials = profile.displayName
     .split(" ")
@@ -23,27 +43,55 @@ export default async function ProfessionalProfilePage({ params }: { params: Prom
     <div className="px-4 py-6 md:px-10 md:py-10">
       <div className="mx-auto max-w-[980px] space-y-6">
         <Card className="flex flex-col gap-5 p-6 md:flex-row md:items-center">
-          <span className="flex size-20 items-center justify-center rounded-2xl bg-khidma/10 font-mono text-[22px] font-semibold text-[#54617a]">
+          <span className="flex size-20 items-center justify-center rounded-2xl bg-clay-soft font-mono text-[22px] font-semibold text-clay-dark">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
             <Eyebrow>KHIDMA · Professional</Eyebrow>
             <h1 className="mt-1 text-[26px] font-semibold tracking-[-0.02em]">{profile.displayName}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted">
-              <span className="flex items-center gap-1.5 font-medium text-success">
-                <Icon name="shield" size={14} />
-                Verified professional
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Icon name="clock" size={14} />
-                Typically responds within a day
-              </span>
+              <SaveButton
+                entityType="professional"
+                entityId={id}
+                initiallySaved={alreadySaved}
+                signedIn={identity !== null}
+              />
+              {profile.verificationStatus === "verified" ? (
+                <span className="flex items-center gap-1.5 font-medium text-success">
+                  <Icon name="shield" size={14} />
+                  Verified professional
+                </span>
+              ) : null}
+              <RatingStars average={rating.average} count={rating.count} />
             </div>
           </div>
         </Card>
 
+        {profile.headline ? <p className="text-[15px] font-medium text-ink">{profile.headline}</p> : null}
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-5">
+            {profile.bio ? (
+              <section>
+                <h2 className="mb-3 text-[17px] font-semibold">About</h2>
+                <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink">{profile.bio}</p>
+                {profile.serviceArea ? (
+                  <p className="mt-2 text-[13px] text-muted">Service area: {profile.serviceArea}</p>
+                ) : null}
+              </section>
+            ) : null}
+            {profile.specialties.length > 0 ? (
+              <section>
+                <h2 className="mb-3 text-[17px] font-semibold">Specialties</h2>
+                <ul className="flex flex-wrap gap-2">
+                  {profile.specialties.map((specialty, index) => (
+                    <li key={`${specialty}-${index}`} className="rounded-full bg-clay-soft px-3 py-1.5 text-[12.5px] font-medium text-clay-dark">
+                      {specialty}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <section>
               <h2 className="mb-3 text-[17px] font-semibold">Services</h2>
               <div className="space-y-3">
@@ -89,6 +137,11 @@ export default async function ProfessionalProfilePage({ params }: { params: Prom
                   </ul>
                 )}
               </Card>
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-[17px] font-semibold">Reviews</h2>
+              <ReviewList reviews={professionalReviews} />
             </section>
           </div>
 

@@ -2,7 +2,7 @@ import { desc, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { cancellationRequests, users } from "@/db/schema";
-import { resolveIdentityFromCookies } from "@/lib/auth/identity";
+import { authenticate } from "@/lib/auth/identity";
 import { isPrivileged } from "@/lib/auth/rbac";
 import { redirect } from "next/navigation";
 import { Card, StatusBadge, formatTimestamp } from "@/components/dber/ui";
@@ -11,7 +11,7 @@ import { ReviewCancellation } from "@/components/actions/governance-actions";
 export const metadata = { title: "Cancellations — Admin" };
 
 export default async function AdminCancellationsPage() {
-  const identity = await resolveIdentityFromCookies();
+  const identity = await authenticate();
   if (!identity) redirect("/welcome");
   if (!isPrivileged(identity.role)) redirect("/");
 

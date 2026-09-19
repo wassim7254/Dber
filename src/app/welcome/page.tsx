@@ -57,15 +57,32 @@ export default function WelcomePage() {
           <p className="mt-2 text-[14.5px] font-semibold">Sign in to explore</p>
           <p className="mx-auto mt-1 max-w-[46ch] text-[12.5px] leading-relaxed text-muted">
             {isDevelopment
-              ? "DBER MVP uses development identity switching. Pick a seeded account — buyer, seller, professional, ops, or admin."
-              : "Production authentication is not configured in this build."}
+              ? "Development build: sign in with the seeded accounts (password “dber-dev-1234”), or pick one below."
+              : "Sign in with your email and password."}
           </p>
-          <div className="mx-auto mt-4 max-w-[320px] text-left">
-            <UserSwitcher currentUserId="" currentRole="sign in" compact={false} />
+          <div className="mx-auto mt-4 flex max-w-[320px] flex-col gap-2">
+            <a
+              href="/login"
+              className="flex items-center justify-center gap-2 rounded-lg bg-green px-4 py-2.5 text-[13px] font-semibold text-bg transition-colors hover:bg-green-dark"
+            >
+              Sign in
+              <Icon name="arrow" size={15} />
+            </a>
+            <a
+              href="/register"
+              className="flex items-center justify-center rounded-lg border border-line px-4 py-2.5 text-[13px] font-semibold transition-colors hover:border-green"
+            >
+              Create account
+            </a>
           </div>
+          {isDevelopment ? (
+            <div className="mx-auto mt-4 max-w-[320px] text-left">
+              <UserSwitcher currentUserId="" currentRole="dev sign in" compact={false} />
+            </div>
+          ) : null}
           <p className="mx-auto mt-4 flex max-w-[52ch] items-center justify-center gap-1.5 text-[11.5px] text-muted">
             <Icon name="shield" size={13} />
-            Role headers and dev sessions are disabled outside development.
+            Dev identity switching is disabled outside development.
           </p>
         </Card>
       </div>

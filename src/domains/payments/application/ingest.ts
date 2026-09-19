@@ -28,7 +28,7 @@ export type ProviderEventType =
   | "refund.failed";
 
 export interface ProviderEventEnvelope {
-  provider: "mock";
+  provider: "mock" | "stripe";
   providerEventId: string;
   eventType: ProviderEventType;
   payload: JsonObject;
