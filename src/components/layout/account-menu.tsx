@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/dber/icon";
+import { RoleSwitcher } from "@/components/layout/role-switcher";
 
 interface AccountMenuProps {
   displayName: string;
@@ -74,22 +75,18 @@ export function AccountMenu({ displayName, role, isPrivileged, isProvider, child
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-2 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-line bg-surface p-2 shadow-[var(--shadow-float)]"
         >
-          <div className="px-2 pb-2 pt-1">
-            <p className="truncate text-[13px] font-semibold">{displayName}</p>
-            <p className="text-[11px] capitalize text-muted">{role.replace(/_/g, " ")}</p>
+          <div className="border-b border-line pb-2">
+            <RoleSwitcher currentRole={role} displayName={displayName} compact onClose={() => setOpen(false)} />
           </div>
-          <div className="border-t border-line pt-1" role="group">
-            {isProvider ? (
-              <MenuLink href="/pro" icon="spark" label="Provider workspace" onNavigate={() => setOpen(false)} />
-            ) : null}
+          <div className="py-1" role="group">
+            <MenuLink href="/account" icon="account" label="Account Settings" onNavigate={() => setOpen(false)} />
+            <MenuLink href="/account/security" icon="shield" label="Security & Sessions" onNavigate={() => setOpen(false)} />
             {isPrivileged ? (
-              <MenuLink href="/admin" icon="shield" label="Operations console" onNavigate={() => setOpen(false)} />
+              <MenuLink href="/admin" icon="shield" label="Operations Console" onNavigate={() => setOpen(false)} />
             ) : null}
-            <MenuLink href="/account" icon="account" label="Account" onNavigate={() => setOpen(false)} />
-            <MenuLink href="/account/security" icon="shield" label="Security" onNavigate={() => setOpen(false)} />
-            <MenuLink href="/support" icon="alert" label="Help & support" onNavigate={() => setOpen(false)} />
+            <MenuLink href="/support" icon="alert" label="Help & Support" onNavigate={() => setOpen(false)} />
           </div>
           {children}
           <div className="border-t border-line pt-1">
@@ -98,7 +95,7 @@ export function AccountMenu({ displayName, role, isPrivileged, isProvider, child
               role="menuitem"
               onClick={() => void signOut()}
               disabled={signingOut}
-              className="w-full rounded-lg px-2 py-2 text-left text-[13px] text-danger transition-colors hover:bg-danger-soft disabled:opacity-60"
+              className="w-full rounded-xl px-3 py-2 text-left text-[12.5px] font-semibold text-danger transition-colors hover:bg-danger-soft disabled:opacity-60"
             >
               {signingOut ? "Signing out…" : "Sign out"}
             </button>

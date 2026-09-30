@@ -8,3 +8,5 @@ export const PUT = mutationRoute({
   body: sellerProfileSchema,
   handler: ({ tx, identity, body }) => updateSellerProfile(tx, identity, body),
 });
+
+export const POST = PUT;

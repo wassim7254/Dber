@@ -60,6 +60,7 @@ export const POST = mutationRoute({
         ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
         ...(body.phone !== undefined ? { phone: body.phone } : {}),
         ...(body.country !== undefined ? { country: body.country } : {}),
+        ...(body.city !== undefined ? { city: body.city } : {}),
         ...(body.locale !== undefined ? { locale: body.locale } : {}),
       },
     });

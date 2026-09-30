@@ -242,3 +242,41 @@ export async function participantOwnsActiveMembership(
     .where(and(eq(groupBuyParticipants.userId, userId), gt(groupBuyParticipants.quantity, 0)))
     .limit(50);
 }
+
+export async function listOrdersForSeller(executor: DbExecutor, sellerId: string): Promise<
+  {
+    participantId: string;
+    circleId: string;
+    productTitle: string;
+    customerName: string;
+    quantity: number;
+    paymentStatus: string;
+    circleState: CircleState;
+    unitPriceMinor: number;
+    currency: string;
+    deliveryMethod: string;
+    joinedAt: Date;
+  }[]
+> {
+  return executor
+    .select({
+      participantId: groupBuyParticipants.id,
+      circleId: groupBuyCircles.id,
+      productTitle: souqProducts.title,
+      customerName: users.displayName,
+      quantity: groupBuyParticipants.quantity,
+      paymentStatus: groupBuyParticipants.paymentStatus,
+      circleState: groupBuyCircles.state,
+      unitPriceMinor: groupBuyCircles.groupPriceMinor,
+      currency: groupBuyCircles.currency,
+      deliveryMethod: souqProducts.deliveryMethod,
+      joinedAt: groupBuyParticipants.joinedAt,
+    })
+    .from(groupBuyParticipants)
+    .innerJoin(groupBuyCircles, eq(groupBuyParticipants.circleId, groupBuyCircles.id))
+    .innerJoin(souqProducts, eq(groupBuyCircles.productId, souqProducts.id))
+    .innerJoin(users, eq(groupBuyParticipants.userId, users.id))
+    .where(eq(groupBuyCircles.sellerId, sellerId))
+    .orderBy(desc(groupBuyParticipants.joinedAt))
+    .limit(100);
+}

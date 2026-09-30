@@ -8,3 +8,5 @@ export const PUT = mutationRoute({
   body: rentalProviderProfileSchema,
   handler: ({ tx, identity, body }) => updateRentalProviderProfile(tx, identity, body),
 });
+
+export const POST = PUT;

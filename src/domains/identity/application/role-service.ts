@@ -7,10 +7,11 @@ import { recordAudit } from "@/infrastructure/audit/writer";
 import type { Identity, ParticipantRole } from "@/lib/auth/types";
 import { ForbiddenError, ResourceNotFoundError } from "@/lib/errors";
 
-/** Roles the account is entitled to use — the source for the role switcher. */
 export async function listUserRoles(executor: DbExecutor, userId: string): Promise<ParticipantRole[]> {
   const rows = await executor.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
-  return rows.map((row) => row.role);
+  return rows
+    .map((row) => row.role)
+    .filter((r): r is ParticipantRole => (["buyer", "seller", "professional", "rental_owner"] as readonly string[]).includes(r));
 }
 
 /**
@@ -47,7 +48,7 @@ export async function switchActiveRole(
     before: { role: identity.role },
     after: { role: updated.role },
   });
-  return { role: updated.role };
+  return { role: targetRole };
 }
 
 /**

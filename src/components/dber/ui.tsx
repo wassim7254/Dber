@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { formatMoney, type Currency } from "@/lib/money";
 import { statusPresentation, type StatusTone } from "@/lib/state-ui";
 import { Icon } from "@/components/dber/icon";
+import { resolveImageUrl } from "@/lib/images";
 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
@@ -109,6 +110,7 @@ export function ProgressBar({
   );
 }
 
+
 export function Media({
   kind,
   title,
@@ -118,16 +120,18 @@ export function Media({
   title: string;
   className?: string;
 }) {
-  // Real uploads are served from /api/v1/media/<id>; descriptors render the
-  // layered gradient art (§47 — no fake production URLs).
-  if (kind.startsWith("/api/v1/media/") || kind.startsWith("http")) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={kind} alt={title} className={`object-cover ${className}`} loading="lazy" />
-    );
-  }
-  const key = kind && kind.length > 0 ? kind : "default";
-  return <div className={`dber-media ${key} ${className}`} role="img" aria-label={title} />;
+  const imageUrl = resolveImageUrl(kind);
+  return (
+    <div className={`relative overflow-hidden bg-stone-100 ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt={title}
+        className="h-full w-full object-cover transition-transform duration-500 will-change-transform group-hover:scale-105"
+        loading="lazy"
+      />
+    </div>
+  );
 }
 
 export function EmptyState({

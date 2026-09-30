@@ -7,6 +7,7 @@ import {
   getParticipant,
   listCirclesBySeller,
   listOpenCircles,
+  listOrdersForSeller,
   listParticipants,
   listProductsBySeller,
 } from "@/domains/souq/infrastructure/souq-repository";
@@ -137,6 +138,17 @@ export interface SellerProductDto {
   createdAt: string;
 }
 
+export interface SouqProductCardDto {
+  id: string;
+  title: string;
+  category: string;
+  basePriceMinor: number;
+  currency: Currency;
+  status: string;
+  unit?: string;
+  images: string[];
+}
+
 export async function listSellerProducts(db: DbExecutor, sellerId: string): Promise<SellerProductDto[]> {
   const rows = await listProductsBySeller(db, sellerId);
   return rows.map((row) => ({
@@ -152,4 +164,37 @@ export async function listSellerProducts(db: DbExecutor, sellerId: string): Prom
 
 export async function getCircleParticipantCount(db: DbExecutor, circleId: string): Promise<number> {
   return countParticipants(db, circleId);
+}
+
+export interface SellerOrderDto {
+  participantId: string;
+  circleId: string;
+  productTitle: string;
+  customerName: string;
+  quantity: number;
+  paymentStatus: string;
+  circleState: string;
+  unitPriceMinor: number;
+  totalPriceMinor: number;
+  currency: Currency;
+  deliveryMethod: string;
+  joinedAt: string;
+}
+
+export async function listSellerOrders(db: DbExecutor, sellerId: string): Promise<SellerOrderDto[]> {
+  const rows = await listOrdersForSeller(db, sellerId);
+  return rows.map((row) => ({
+    participantId: row.participantId,
+    circleId: row.circleId,
+    productTitle: row.productTitle,
+    customerName: row.customerName,
+    quantity: row.quantity,
+    paymentStatus: row.paymentStatus,
+    circleState: row.circleState,
+    unitPriceMinor: row.unitPriceMinor,
+    totalPriceMinor: row.unitPriceMinor * row.quantity,
+    currency: asCurrency(row.currency),
+    deliveryMethod: row.deliveryMethod,
+    joinedAt: row.joinedAt.toISOString(),
+  }));
 }

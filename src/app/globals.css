@@ -1,34 +1,97 @@
 @import "tailwindcss";
 
+/* Class-based dark mode — the pre-paint script sets `.dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-bg: #f7f6f1;
+  --color-bg: #f9f8f3;
   --color-surface: #ffffff;
-  --color-ink: #171815;
-  --color-muted: #6e7168;
-  --color-line: #e4e5df;
-  --color-green: #61775a;
-  --color-green-dark: #304536;
-  --color-green-soft: #e6ede2;
-  --color-sand: #b99b62;
-  --color-sand-soft: #f4ecdd;
-  --color-warn: #c38b3b;
-  --color-danger: #b85c52;
-  --color-danger-soft: #f7e8e6;
-  --color-success: #5c8062;
-  --color-success-soft: #e7efe8;
-  /* KHIDMA — warm terracotta / clay / sand (§38) */
-  --color-clay: #a05c2f;
-  --color-clay-dark: #7c4623;
-  --color-clay-soft: #f3e4d8;
-  /* KRAYA — deep indigo / sky / amber accent (§38) */
-  --color-azure: #3f5c8f;
-  --color-azure-dark: #27406b;
-  --color-azure-soft: #e4ebf5;
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-surface-soft: #f4f3ec;
+  --color-ink: #161714;
+  --color-muted: #6f726a;
+  --color-line: #eae8df;
+  --color-line-subtle: #f0eee7;
+
+  /* SOUQ — fresh organic green, deep forest, warm orange/coral accent */
+  --color-green: #526f4b;
+  --color-green-dark: #203923;
+  --color-green-soft: #e7efe4;
+  --color-orange: #d96328;
+  --color-orange-soft: #fcf0e8;
+
+  --color-sand: #b89a63;
+  --color-sand-soft: #f5eedf;
+  --color-warn: #c48937;
+  --color-danger: #b55348;
+  --color-danger-soft: #f9e9e7;
+  --color-success: #4e7a55;
+  --color-success-soft: #e5f0e7;
+
+  /* KHIDMA — deep indigo, crafted terracotta/clay, soft lavender */
+  --color-indigo: #25284e;
+  --color-indigo-soft: #eae9f5;
+  --color-clay: #995229;
+  --color-clay-dark: #6e391b;
+  --color-clay-soft: #f5e7dc;
+
+  /* KRAYA — deep ocean navy, sky blue, sand */
+  --color-azure: #2c527c;
+  --color-azure-dark: #162c47;
+  --color-azure-soft: #e3edf7;
+  --color-teal: #367280;
+
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --radius-card: 20px;
-  --shadow-card: 0 1px 2px rgba(23, 24, 21, 0.04), 0 8px 24px rgba(23, 24, 21, 0.05);
-  --shadow-float: 0 12px 32px rgba(23, 24, 21, 0.16), 0 2px 8px rgba(23, 24, 21, 0.08);
+
+  --radius-card: 24px;
+  --radius-card-lg: 28px;
+  --shadow-card: 0 1px 3px rgba(22, 23, 20, 0.04), 0 6px 20px rgba(22, 23, 20, 0.04);
+  --shadow-float: 0 16px 36px rgba(22, 23, 20, 0.12), 0 3px 10px rgba(22, 23, 20, 0.06);
+}
+
+/*
+ * Dark mode — warm charcoal, never pure black. Only token VALUES flip here;
+ * every component referencing a token adapts automatically. `*-dark` brand
+ * shades become light tints so `bg-green-dark text-bg` pairings stay
+ * readable in both directions.
+ */
+.dark {
+  color-scheme: dark;
+  --color-bg: #121411;
+  --color-surface: #1a1d18;
+  --color-surface-soft: #21251e;
+  --color-ink: #edece4;
+  --color-muted: #9ba093;
+  --color-line: #2b2f28;
+  --color-line-subtle: #22261f;
+
+  --color-green: #8fac80;
+  --color-green-dark: #d8e4ce;
+  --color-green-soft: #232b20;
+  --color-orange: #e87f47;
+  --color-orange-soft: #33231a;
+
+  --color-sand: #c9ab72;
+  --color-sand-soft: #2c2719;
+  --color-warn: #d9a458;
+  --color-danger: #dd8378;
+  --color-danger-soft: #35211e;
+  --color-success: #8db894;
+  --color-success-soft: #1f2b21;
+
+  --color-indigo: #a3aade;
+  --color-indigo-soft: #20233a;
+  --color-clay: #d18a55;
+  --color-clay-dark: #e8b88f;
+  --color-clay-soft: #2e241c;
+
+  --color-azure: #7fa4d2;
+  --color-azure-dark: #b5cdee;
+  --color-azure-soft: #1c2534;
+  --color-teal: #6fb0bf;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 6px 20px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 16px 36px rgba(0, 0, 0, 0.55), 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
 :root {
@@ -43,8 +106,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Gentle cross-fade when the theme flips — disabled for reduced-motion users. */
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease;
+  }
+}
+
 ::selection {
   background: var(--color-green-soft);
+  color: var(--color-ink);
 }
 
 :focus-visible {
@@ -74,6 +145,12 @@ body {
   filter: blur(2px);
   z-index: -1;
 }
+.dark .dber-page-glow::before {
+  background:
+    radial-gradient(64% 68% at 18% 0%, rgba(143, 172, 128, 0.13), transparent 70%),
+    radial-gradient(52% 60% at 86% 4%, rgba(201, 171, 114, 0.09), transparent 72%),
+    radial-gradient(40% 44% at 55% 12%, rgba(127, 164, 210, 0.08), transparent 70%);
+}
 
 /* Editorial product/asset media — layered soft gradients standing in for
    photography; content renders over them with no watermark (§47). */
@@ -102,6 +179,19 @@ body {
     linear-gradient(180deg, transparent 55%, rgb(23 24 21 / 0.10));
   pointer-events: none;
 }
+/* Media art dims slightly in dark mode so cards stay calm on charcoal. */
+.dark .dber-media {
+  filter: saturate(0.88) brightness(0.92);
+}
+.dark .dber-media::before {
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.14), transparent);
+}
+.dark .dber-media::after {
+  background:
+    radial-gradient(120% 90% at 85% 8%, rgb(255 255 255 / 0.06), transparent 55%),
+    linear-gradient(180deg, transparent 45%, rgb(0 0 0 / 0.38));
+}
+
 .dber-media.olive { background: linear-gradient(150deg, #7d8f6d, #a7b897 52%, #dbe3cb); }
 .dber-media.audio { background: linear-gradient(150deg, #3b4340, #6a7771 55%, #b3beba); }
 .dber-media.argan { background: linear-gradient(150deg, #c99a58, #e0c18b 55%, #f5e8cf); }

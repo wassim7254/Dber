@@ -6,6 +6,7 @@ import { isDevelopment } from "@/lib/config/env";
 import { Icon, type IconName } from "@/components/dber/icon";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserSwitcher } from "@/components/layout/user-switcher";
 
 const VERTICALS: { href: string; label: string; icon: IconName; blurb: string }[] = [
@@ -23,7 +24,9 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const identity = await getCurrentUser();
-  const isProvider = identity ? ["seller", "professional", "admin"].includes(identity.role) : false;
+  const isProvider = identity
+    ? ["seller", "professional", "rental_owner", "admin"].includes(identity.role)
+    : false;
   const showDevSwitcher = isDevelopment && identity !== null;
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[1440px]">
@@ -148,6 +151,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-[15px] font-semibold">DBER</span>
           </Link>
           <div className="flex items-center gap-1">
+            <ThemeToggle />
             <Link
               href="/notifications"
               aria-label="Notifications"

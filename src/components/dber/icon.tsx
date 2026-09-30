@@ -17,7 +17,13 @@ export type IconName =
   | "shield"
   | "plus"
   | "close"
-  | "spark";
+  | "spark"
+  | "calendar"
+  | "box"
+  | "orders"
+  | "earnings"
+  | "sun"
+  | "moon";
 
 const PATHS: Record<IconName, string> = {
   home: "M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z",
@@ -37,6 +43,12 @@ const PATHS: Record<IconName, string> = {
   plus: "M12 5v14M5 12h14",
   close: "M6 6l12 12M18 6 6 18",
   spark: "M12 3l1.8 5.7L19.5 10l-5.7 1.8L12 17.5l-1.8-5.7L4.5 10l5.7-1.3L12 3Z",
+  calendar: "M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm-16 6h18M16 2v4M8 2v4",
+  box: "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
+  orders: "M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4",
+  earnings: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  sun: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0-6v2.5m0 19V21m10-9h-2.5m-19 0H3M19.07 4.93l-1.77 1.77M6.7 17.3l-1.77 1.77m0-15.14L6.7 6.7m10.6 10.6 1.77 1.77",
+  moon: "M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z",
 };
 
 export function Icon({

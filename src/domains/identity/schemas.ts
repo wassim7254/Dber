@@ -34,7 +34,7 @@ export const registerSchema = z
     const selected = input.roles?.length ? Array.from(new Set(input.roles)) : [input.role];
     // Everyone shops (buyer is implicit); the active context starts at the first provider role.
     const entitlements = Array.from(new Set(["buyer" as const, ...selected]));
-    const activeRole = selected.find((role) => role !== "buyer") ?? "buyer";
+    const activeRole = (selected.find((role) => role !== "buyer") ?? "buyer") as z.infer<typeof registrableRoleSchema>;
     return { ...input, entitlements, activeRole };
   });
 
